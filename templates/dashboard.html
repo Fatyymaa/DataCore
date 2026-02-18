@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>DATACORE | PANEL CONTROL</title>
+    <style>
+        /* CSS PLANO - BLANCO Y NEGRO */
+        body { background: #fff; color: #000; font-family: 'Courier New', monospace; margin: 40px; line-height: 1.6; }
+        header { border-bottom: 3px solid #000; padding-bottom: 10px; margin-bottom: 30px; display: flex; justify-content: space-between; }
+        .seccion { border: 2px solid #000; padding: 20px; margin-bottom: 30px; }
+        h2 { text-transform: uppercase; margin-top: 0; background: #000; color: #fff; padding: 5px 10px; display: inline-block; }
+        
+        /* FORMULARIO */
+        .grid-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        input, select, textarea { border: 1px solid #000; padding: 8px; font-family: monospace; width: 100%; box-sizing: border-box; }
+        textarea { grid-column: span 3; }
+        .btn-negro { background: #000; color: #fff; border: none; padding: 10px 20px; cursor: pointer; text-transform: uppercase; font-weight: bold; width: 100%; }
+        
+        /* TABLA */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85em; }
+        th { background: #000; color: #fff; padding: 10px; text-align: left; text-transform: uppercase; }
+        td { border: 1px solid #000; padding: 10px; }
+        .btn-accion { border: 1px solid #000; padding: 4px 8px; text-decoration: none; color: #000; font-weight: bold; font-size: 0.9em; }
+        .btn-accion:hover { background: #000; color: #fff; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div><strong>DATACORE SYSTEM</strong> | SESIÓN: {{ nombre }}</div>
+        <a href="/logout" style="color: #000;">[SALIR]</a>
+    </header>
+
+    <div class="seccion">
+    <h2>Registrar Nuevo Ingreso</h2>
+    <form action="/registrar" method="POST" class="grid-form">
+        <input type="text" name="nombre" placeholder="Nombre(s)" required>
+        <input type="text" name="apellido_p" placeholder="Ap. Paterno" required>
+        <input type="text" name="apellido_m" placeholder="Ap. Materno" required>
+        
+        <input type="text" name="rfc" placeholder="RFC" maxlength="13">
+        <input type="text" name="curp" placeholder="CURP" maxlength="18">
+        <input type="number" name="edad" placeholder="Edad">
+
+        <input type="email" name="correo" placeholder="Correo Electrónico" required>
+        <input type="text" name="password1" placeholder="Contraseña Temporal" required>
+        
+        <select name="sexo">
+            <option value="MASCULINO">MASCULINO</option>
+            <option value="FEMENINO">FEMENINO</option>
+            <option value="OTRO">OTRO</option>
+        </select>
+
+        <select name="es_empleado">
+            <option value="1">EMPLEADO</option>
+            <option value="0">VOLUNTARIO</option>
+        </select>
+
+        <select name="rol_id">
+            <option value="1">1 | DIRECTOR</option>
+            <option value="2">2 | COORDINADOR</option>
+            <option value="3">3 | PSICOLOGO</option>
+            <option value="4">4 | DOCTOR</option>
+            <option value="5">5 | ABOGADO</option>
+            <option value="6">6 | TRABAJADOR SOCIAL</option>
+            <option value="7">7 | ANALISTA</option>
+            <option value="8">8 | EQUIPO MULTIDISCIPLINARIO</option>
+        </select>
+
+        <textarea name="direccion" placeholder="Dirección completa..."></textarea>
+        
+        <div style="grid-column: span 3;">
+            <button type="submit" class="btn-negro">Ejecutar Registro</button>
+        </div>
+    </form>
+</div>
+
+    <div class="seccion">
+        <h2>Listado de Personal Registrado</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th>Correo</th>
+                    <th>Edad/Sexo</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in personal %}
+                <tr>
+                    <td>{{ p.nombre }} {{ p.apellido_p }}</td>
+                    <td>{{ 'EMPLEADO' if p.es_empleado else 'VOLUNTARIO' }}</td>
+                    <td>{{ p.correo }}</td>
+                    <td>{{ p.edad }} / {{ p.sexo[:1] }}</td>
+                    <td>{{ 'ACTIVO' if p.esta_activo else 'INACTIVO' }}</td>
+                    <td>
+                        <a href="/estado/{{ p.id }}/{{ p.esta_activo }}" class="btn-accion">
+                            {{ 'REVOCAR' if p.esta_activo else 'ACTIVAR' }}
+                        </a>
+                        <a href="/eliminar/{{ p.id }}" class="btn-accion" onclick="return confirm('¿Confirmar baja?')">BORRAR</a>
+                        </a>
+                        <a href="/consultar/{{ p.id }}" class="btn-accion" style="background: #222; color: white;">VER EXPEDIENTE</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</body>
+</html>
