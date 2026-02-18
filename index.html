@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataCore - Registro Profesional</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 450px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+        form { display: flex; flex-direction: column; gap: 10px; border: 1px solid #ddd; padding: 20px; border-radius: 8px; }
+        label { font-size: 0.85em; color: #555; margin-bottom: -5px; }
+        input, select, button { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        button { background: #003b5c; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .row { display: flex; gap: 10px; }
+        .row > div { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+    </style>
+</head>
+<body>
+
+    <h2 style="text-align: center;">Registro de Personal</h2>
+
+    <form>
+        <label>Nombre Completo</label>
+        <input type="text" name="nombre_completo" placeholder="Ej. Irving Yael Falcon Zermeño" required>
+
+        <div class="row">
+            <div>
+                <label>RFC</label>
+                <input type="text" name="rfc" maxlength="13" required>
+            </div>
+            <div>
+                <label>CURP</label>
+                <input type="text" name="curp" maxlength="18" required>
+            </div>
+        </div>
+
+        <div class="row">
+            <div>
+                <label>Sexo</label>
+                <select name="sexo">
+                    <option value="M">Masculino</option>
+                    <option value="F">Femenino</option>
+                    <option value="O">Otro</option>
+                </select>
+            </div>
+            <div>
+                <label>Edad</label>
+                <input type="number" name="edad" min="18">
+            </div>
+        </div>
+
+        <label>Rol en el Sistema</label>
+        <select name="rol_id" required>
+            <option value="1">Director</option>
+            <option value="2">Coordinador</option>
+            <option value="3">Psicólogo</option>
+            </select>
+
+        <label>Correo Electrónico</label>
+        <input type="email" name="correo" required>
+
+        <label>Contraseña</label>
+        <input type="password" name="password_hash" required>
+
+        <button type="submit">Finalizar Registro</button>
+    </form>
+
+</body>
+</html>
