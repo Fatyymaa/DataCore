@@ -1,0 +1,171 @@
+from flask import Flask, render_template, request, redirect, url_for, session
+import psycopg2
+from psycopg2.extras import RealDictConnection, RealDictCursor
+
+app = Flask(__name__)
+app.secret_key = 'tu_llave_secreta_super_pro'
+
+#funcion para la conexion de postgresql
+def conectar_db():
+    return psycopg2.connect(
+        host="localhost",
+        database="fundacion_db",
+        user="postgres",
+        password="1234"
+    )
+# Ruta principal para el login
+@app.route('/')
+def index():
+    return render_template('login.html')
+
+# Logica de inicio de sesion 
+@app.route('/login', methods=['POST'])
+def login():
+    correo = request.form['correo']
+    password_ingresada = request.form['password1']
+
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    # buscar al usuario y verificar que este conectado
+    cur.execute("SELECT * FROM personal WHERE correo = %s", (correo,))
+    usuario = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    if usuario and usuario['password1'] == password_ingresada:
+        if usuario['esta_activo']:
+            session['usuario_id'] = usuario['id']
+            session['nombre'] = usuario['nombre']
+            session['Apellido_paterno'] = usuario['apellido_p']
+            session['apellido_materno'] = usuario['apellido_m']
+            session['rol'] = usuario['rol_id']
+            return redirect(url_for('dashboard'))
+        else: 
+            return "tu cuenta no esta activa, contacta al direcctor o al coordinador"
+        
+        return "tu correo o contraseña son incorrectos <a href='/'>Volver a intentar</a>"
+    # Ruta para el dashboard
+@app.route('/dashboard')
+def dashboard():
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+    
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    # Listamos a todos por ID
+    cur.execute("SELECT * FROM personal ORDER BY id ASC")
+    usuarios = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('dashboard.html', personal=usuarios, nombre=session['nombre'])
+
+# registrar nuevos empleados
+@app.route('/registrar', methods=['POST'])
+def registrar():
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+    
+    d = request.form
+    es_emp = True if d['es_empleado'] == '1' else False
+
+    conn = conectar_db()
+    cur = conn.cursor()
+    # Agregamos rfc y curp a la consulta
+    query = """
+        INSERT INTO personal (nombre, apellido_p, apellido_m, rfc, curp, correo, 
+        password1, rol_id, sexo, edad, direccion, es_empleado, esta_activo) 
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+    """
+    cur.execute(query, (d['nombre'], d['apellido_p'], d['apellido_m'], d['rfc'], 
+                        d['curp'], d['correo'], d['password1'], d['rol_id'], 
+                        d['sexo'], d['edad'], d['direccion'], es_emp))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for('dashboard'))
+
+#cambiar estado
+@app.route('/estado/<int:id>/<string:actual>')
+def cambiar_estado(id, actual):
+    # Cambia de True a False o viceversa
+    nuevo_estado = False if actual == 'True' else True
+    conn = conectar_db()
+    cur = conn.cursor()
+    cur.execute("UPDATE personal SET esta_activo = %s WHERE id = %s", (nuevo_estado, id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for('dashboard'))
+
+# eliminar usuario
+@app.route('/eliminar/<int:id>')
+def eliminar(id):
+    conn = conectar_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM personal WHERE id = %s", (id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for('dashboard'))
+# consultar los datos del empleado
+@app.route('/consultar/<int:id>')
+def consultar_detalle(id):
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+    
+    conn = conectar_db()
+    # Usamos RealDictCursor para llamar los datos por nombre
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT * FROM personal WHERE id = %s", (id,))
+    persona = cur.fetchone()
+    cur.close()
+    conn.close()
+    
+    if not persona:
+        return "Usuario no encontrado", 404
+        
+    return render_template('consultar.html', p=persona)
+#editar los datos del trabajador y guardar los datos 
+# --- RUTA PARA MOSTRAR EL FORMULARIO DE EDICIÓN ---
+@app.route('/editar/<int:id>')
+def editar_usuario(id):
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT * FROM personal WHERE id = %s", (id,))
+    usuario = cur.fetchone()
+    cur.close()
+    conn.close()
+    return render_template('editar.html', u=usuario)
+
+# --- RUTA PARA GUARDAR LOS CAMBIOS ---
+@app.route('/actualizar', methods=['POST'])
+def actualizar():
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+    d = request.form
+    es_emp = True if d['es_empleado'] == '1' else False
+    
+    conn = conectar_db()
+    cur = conn.cursor()
+    query = """
+        UPDATE personal SET 
+        nombre=%s, apellido_p=%s, apellido_m=%s, rfc=%s, curp=%s, 
+        correo=%s, rol_id=%s, sexo=%s, edad=%s, direccion=%s, es_empleado=%s
+        WHERE id=%s
+    """
+    cur.execute(query, (d['nombre'], d['apellido_p'], d['apellido_m'], d['rfc'], 
+                        d['curp'], d['correo'], d['rol_id'], d['sexo'], 
+                        d['edad'], d['direccion'], es_emp, d['id']))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for('dashboard'))
+
+    # cerrar sesion
+
+@app.route('/logout')
+def logout():
+        session.clear()
+        return redirect(url_for('index'))
+    
+if __name__ == '__main__':
+        app.run(debug=True)

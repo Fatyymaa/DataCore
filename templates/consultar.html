@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>DATACORE | Expediente de {{ p.nombre }}</title>
+    <style>
+        body { font-family: 'Courier New', Courier, monospace; background-color: #f4f4f4; padding: 50px; }
+        .expediente { background: white; border: 2px solid #000; max-width: 600px; margin: 0 auto; padding: 30px; box-shadow: 10px 10px 0px #000; }
+        h1 { border-bottom: 2px solid #000; padding-bottom: 10px; text-transform: uppercase; }
+        .dato { margin-bottom: 15px; border-bottom: 1px dotted #ccc; display: flex; justify-content: space-between; }
+        .etiqueta { font-weight: bold; color: #555; }
+        .valor { text-align: right; }
+        .footer-btns { margin-top: 30px; display: flex; gap: 10px; }
+        .btn { background: #000; color: #fff; padding: 10px 20px; text-decoration: none; font-size: 12px; }
+        .btn:hover { background: #333; }
+    </style>
+</head>
+<body>
+    <div class="expediente">
+        <h1>Expediente Personal</h1>
+        <div class="dato"><span class="etiqueta">ID REGISTRO:</span> <span class="valor">#{{ p.id }}</span></div>
+        <div class="dato"><span class="etiqueta">NOMBRE:</span> <span class="valor">{{ p.nombre }} {{ p.apellido_p }} {{ p.apellido_m }}</span></div>
+        <div class="dato"><span class="etiqueta">RFC:</span> <span class="valor">{{ p.rfc }}</span></div>
+        <div class="dato"><span class="etiqueta">CURP:</span> <span class="valor">{{ p.curp }}</span></div>
+        <div class="dato"><span class="etiqueta">EDAD:</span> <span class="valor">{{ p.edad }} años</span></div>
+        <div class="dato"><span class="etiqueta">SEXO:</span> <span class="valor">{{ p.sexo }}</span></div>
+        <div class="dato"><span class="etiqueta">CORREO:</span> <span class="valor">{{ p.correo }}</span></div>
+        <div class="dato"><span class="etiqueta">DIRECCIÓN:</span> <span class="valor">{{ p.direccion }}</span></div>
+        <div class="dato"><span class="etiqueta">ESTADO:</span> <span class="valor">{{ 'ACTIVO' if p.esta_activo else 'INACTIVO' }}</span></div>
+        
+        <div class="footer-btns">
+            <a href="/dashboard" class="btn">← VOLVER AL LISTADO</a>
+            <a href="/editar/{{ p.id }}" class="btn" style="background: #444;">EDITAR DATOS</a>
+        </div>
+    </div>
+</body>
+</html>

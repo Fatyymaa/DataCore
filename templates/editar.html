@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>DATACORE | EDITAR EXPEDIENTE</title>
+    <style>
+        body { font-family: 'Courier New', Courier, monospace; background: #f4f4f4; padding: 20px; }
+        .container { background: white; border: 3px solid #000; max-width: 800px; margin: 0 auto; padding: 20px; box-shadow: 12px 12px 0px #000; }
+        h2 { text-align: center; border-bottom: 3px solid #000; padding-bottom: 10px; }
+        form { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .full { grid-column: span 2; }
+        label { font-weight: bold; font-size: 12px; display: block; margin-bottom: 5px; }
+        input, select, textarea { border: 2px solid #000; padding: 10px; width: 100%; box-sizing: border-box; font-family: monospace; }
+        button { background: #000; color: #fff; border: none; padding: 15px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        button:hover { background: #333; }
+        .cancelar { text-align: center; display: block; margin-top: 10px; color: #000; text-decoration: none; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>MODIFICAR REGISTRO #{{ u.id }}</h2>
+        <form action="/actualizar" method="POST">
+            <input type="hidden" name="id" value="{{ u.id }}">
+            
+            <div>
+                <label>NOMBRE(S):</label>
+                <input type="text" name="nombre" value="{{ u.nombre }}" required>
+            </div>
+            <div>
+                <label>APELLIDO PATERNO:</label>
+                <input type="text" name="apellido_p" value="{{ u.apellido_p }}" required>
+            </div>
+            <div>
+                <label>APELLIDO MATERNO:</label>
+                <input type="text" name="apellido_m" value="{{ u.apellido_m }}" required>
+            </div>
+            <div>
+                <label>EDAD:</label>
+                <input type="number" name="edad" value="{{ u.edad }}">
+            </div>
+            <div>
+                <label>RFC:</label>
+                <input type="text" name="rfc" value="{{ u.rfc }}" maxlength="13">
+            </div>
+            <div>
+                <label>CURP:</label>
+                <input type="text" name="curp" value="{{ u.curp }}" maxlength="18">
+            </div>
+            <div>
+                <label>CORREO ELECTRÓNICO:</label>
+                <input type="email" name="correo" value="{{ u.correo }}" required>
+            </div>
+            <div>
+                <label>SEXO:</label>
+                <select name="sexo">
+                    <option value="MASCULINO" {{ 'selected' if u.sexo == 'MASCULINO' }}>MASCULINO</option>
+                    <option value="FEMENINO" {{ 'selected' if u.sexo == 'FEMENINO' }}>FEMENINO</option>
+                    <option value="OTRO" {{ 'selected' if u.sexo == 'OTRO' }}>OTRO</option>
+                </select>
+            </div>
+            <div>
+                <label>ROL EN LA INSTITUCIÓN:</label>
+                <select name="rol_id">
+                    <option value="1" {{ 'selected' if u.rol_id == 1 }}>1 | DIRECTOR</option>
+                    <option value="2" {{ 'selected' if u.rol_id == 2 }}>2 | COORDINADOR</option>
+                    <option value="3" {{ 'selected' if u.rol_id == 3 }}>3 | PSICOLOGO</option>
+                    <option value="4" {{ 'selected' if u.rol_id == 4 }}>4 | DOCTOR</option>
+                    <option value="5" {{ 'selected' if u.rol_id == 5 }}>5 | ABOGADO</option>
+                    <option value="6" {{ 'selected' if u.rol_id == 6 }}>6 | TRABAJADOR SOCIAL</option>
+                    <option value="7" {{ 'selected' if u.rol_id == 7 }}>7 | ANALISTA</option>
+                    <option value="8" {{ 'selected' if u.rol_id == 8 }}>8 | EQUIPO MULTIDISCIPLINARIO</option>
+                </select>
+            </div>
+            <div>
+                <label>TIPO DE COLABORADOR:</label>
+                <select name="es_empleado">
+                    <option value="1" {{ 'selected' if u.es_empleado }}>EMPLEADO</option>
+                    <option value="0" {{ 'selected' if not u.es_empleado }}>VOLUNTARIO</option>
+                </select>
+            </div>
+            <div class="full">
+                <label>DIRECCIÓN COMPLETA:</label>
+                <textarea name="direccion" rows="3">{{ u.direccion }}</textarea>
+            </div>
+
+            <button type="submit" class="full">GUARDAR CAMBIOS PERMANENTES</button>
+        </form>
+        <a href="/dashboard" class="cancelar">[ CANCELAR Y VOLVER ]</a>
+    </div>
+</body>
+</html>
