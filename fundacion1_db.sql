@@ -1,5 +1,5 @@
 CREATE TABLE roles (id SERIAL PRIMARY KEY, nombre_rol VARCHAR(50) UNIQUE NOT NULL);
-
+-- insertar roles --
 INSERT INTO roles (nombre_rol) VALUES ('Director'), ('Coordinador'), ('Psicologo'), ('Doctor'), ('Abogado'), ('Trabajador Social'), ('Analista'), ('Equipo Multidisciplinario');
 -- 1. BORRAR TABLA SI EXISTE PARA EVITAR CONFLICTOS
 DROP TABLE IF EXISTS personal;

@@ -41,11 +41,19 @@ def login():
             session['Apellido_paterno'] = usuario['apellido_p']
             session['apellido_materno'] = usuario['apellido_m']
             session['rol'] = usuario['rol_id']
-            return redirect(url_for('dashboard'))
-        else: 
-            return "tu cuenta no esta activa, contacta al direcctor o al coordinador"
-        
-        return "tu correo o contraseña son incorrectos <a href='/'>Volver a intentar</a>"
+            session['rol'] = usuario['rol_id'] # Guardamos el rol en la sesión
+
+        # 🔀 DIVISIÓN DE CAMINOS
+            if session['rol'] in [1, 2]:
+                return redirect(url_for('dashboard'))
+            else:
+                return redirect(url_for('home'))
+        else:
+            # Este else pertenece al "if usuario['esta_activo']"
+            return "Tu cuenta no está activa, contacta al director o coordinador."
+    else:
+        # Este else pertenece al "if usuario and password..."
+        return "Correo o contraseña incorrectos. <a href='/'>Volver a intentar</a>"
     # Ruta para el dashboard
 @app.route('/dashboard')
 def dashboard():
@@ -159,6 +167,12 @@ def actualizar():
     cur.close()
     conn.close()
     return redirect(url_for('dashboard'))
+@app.route('/home')
+def home():
+    if 'usuario_id' not in session:
+        return redirect(url_for('index'))
+    
+    return render_template('home.html', nombre=session['nombre'])
 
     # cerrar sesion
 
