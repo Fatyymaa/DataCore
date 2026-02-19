@@ -1,6 +1,6 @@
 # Proyecto: DataCore (Sistema de Gestión)
 
-Repositorio oficial del equipo para la materia de **Bases de Datos**. Estamos integrando el frontend con el servidor de Flask y la base de datos PostgreSQL.
+Repositorio del equipo para la materia de **Bases de Datos**. Estamos integrando el frontend con el servidor de Flask y la base de datos PostgreSQL.
 
 ### Estado del Proyecto:
 * **Backend y DB:** Ya se integró el `app.py` y el esquema `fundacion1_db.sql`. Tenemos listas las rutas para el login, dashboard y consultas.
