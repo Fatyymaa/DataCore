@@ -27,9 +27,15 @@
 <body>
 
     <header>
-        <div><strong>DATACORE SYSTEM</strong> | SESIÓN: {{ nombre }}</div>
+        <div><strong>CORE-NNA SYSTEM</strong> | SESIÓN: {{ nombre }}</div>
         <a href="/logout" style="color: #000;">[SALIR]</a>
     </header>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h2>PANEL DE CONTROL (ADMIN)</h2>
+    <a href="/home" style="background: #000; color: #fff; padding: 10px; text-decoration: none; font-weight: bold; font-size: 12px;">
+        IR A VISTA HOME
+    </a>
+</div>
    
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}

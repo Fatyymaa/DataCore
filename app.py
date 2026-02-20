@@ -1,5 +1,6 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import psycopg2
+import re  # Esta librería sirve para validar formatos de texto
 from psycopg2.extras import RealDictConnection, RealDictCursor
 
 app = Flask(__name__)
@@ -41,11 +42,19 @@ def login():
             session['Apellido_paterno'] = usuario['apellido_p']
             session['apellido_materno'] = usuario['apellido_m']
             session['rol'] = usuario['rol_id']
-            return redirect(url_for('dashboard'))
-        else: 
-            return "tu cuenta no esta activa, contacta al direcctor o al coordinador"
-        
-        return "tu correo o contraseña son incorrectos <a href='/'>Volver a intentar</a>"
+            session['rol'] = usuario['rol_id'] # Guardamos el rol en la sesión
+
+        # 🔀 DIVISIÓN DE CAMINOS
+            if session['rol'] in [1, 2]:
+                return redirect(url_for('dashboard'))
+            else:
+                return redirect(url_for('home'))
+        else:
+            # Este else pertenece al "if usuario['esta_activo']"
+            return "Tu cuenta no está activa, contacta al director o coordinador."
+    else:
+        # Este else pertenece al "if usuario and password..."
+        return "Correo o contraseña incorrectos. <a href='/'>Volver a intentar</a>"
     # Ruta para el dashboard
 @app.route('/dashboard')
 def dashboard():
@@ -66,22 +75,58 @@ def registrar():
     if 'usuario_id' not in session: return redirect(url_for('index'))
     
     d = request.form
+    pass1 = d['password1']
+    pass2 = d['confirmar_password']
+    rfc = d['rfc'].upper()   # Lo convertimos a mayúsculas automáticamente
+    curp = d['curp'].upper() # Lo convertimos a mayúsculas automáticamente
+
+    # --- VALIDACIÓN DE CONTRASEÑAS ---
+    if pass1 != pass2:
+        flash("Las contraseñas no coinciden", "error")
+        return redirect(url_for('dashboard'))
+
+    # --- VALIDACIÓN DE RFC (Formato: 4 letras, 6 números, 3 alfanuméricos) ---
+    # Esta regla sirve para personas físicas
+    rfc_pattern = r'^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$'
+    if not re.match(rfc_pattern, rfc):
+        flash("El formato del RFC es inválido", "error")
+        return redirect(url_for('dashboard'))
+
+    # --- VALIDACIÓN DE CURP (Formato: 18 caracteres específicos) ---
+    curp_pattern = r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$'
+    if not re.match(curp_pattern, curp):
+        flash("El formato de la CURP es inválido", "error")
+        return redirect(url_for('dashboard'))
+
+    # Si todo está bien, procedemos a guardar
     es_emp = True if d['es_empleado'] == '1' else False
 
     conn = conectar_db()
     cur = conn.cursor()
-    # Agregamos rfc y curp a la consulta
     query = """
         INSERT INTO personal (nombre, apellido_p, apellido_m, rfc, curp, correo, 
         password1, rol_id, sexo, edad, direccion, es_empleado, esta_activo) 
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
     """
-    cur.execute(query, (d['nombre'], d['apellido_p'], d['apellido_m'], d['rfc'], 
-                        d['curp'], d['correo'], d['password1'], d['rol_id'], 
-                        d['sexo'], d['edad'], d['direccion'], es_emp))
+    cur.execute(query, (
+        d['nombre'], 
+        d['apellido_p'], 
+        d['apellido_m'], 
+        d['rfc'], 
+        d['curp'], 
+        d['correo'], 
+        pass1, 
+        d['rol_id'], 
+        d['sexo'], 
+        d['edad'], 
+        d['direccion'], 
+        es_emp
+        ))
     conn.commit()
     cur.close()
     conn.close()
+
+    flash("Usuario registrado con éxito", "success")
     return redirect(url_for('dashboard'))
 
 #cambiar estado
@@ -159,6 +204,12 @@ def actualizar():
     cur.close()
     conn.close()
     return redirect(url_for('dashboard'))
+@app.route('/home')
+def home():
+    if 'usuario_id' not in session:
+        return redirect(url_for('index'))
+    
+    return render_template('home.html', nombre=session['nombre'])
 
     # cerrar sesion
 
