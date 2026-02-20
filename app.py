@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import psycopg2
+import re  # Esta librería sirve para validar formatos de texto
 from psycopg2.extras import RealDictConnection, RealDictCursor
 
 app = Flask(__name__)
@@ -67,13 +68,29 @@ def registrar():
     
     d = request.form
     pass1 = d['password1']
-    pass2 = d['confirmar_password'] # El nuevo campo del HTML
+    pass2 = d['confirmar_password']
+    rfc = d['rfc'].upper()   # Lo convertimos a mayúsculas automáticamente
+    curp = d['curp'].upper() # Lo convertimos a mayúsculas automáticamente
 
-    # 1. Validar que las contraseñas coincidan
+    # --- VALIDACIÓN DE CONTRASEÑAS ---
     if pass1 != pass2:
         flash("Las contraseñas no coinciden", "error")
         return redirect(url_for('dashboard'))
 
+    # --- VALIDACIÓN DE RFC (Formato: 4 letras, 6 números, 3 alfanuméricos) ---
+    # Esta regla sirve para personas físicas
+    rfc_pattern = r'^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$'
+    if not re.match(rfc_pattern, rfc):
+        flash("El formato del RFC es inválido", "error")
+        return redirect(url_for('dashboard'))
+
+    # --- VALIDACIÓN DE CURP (Formato: 18 caracteres específicos) ---
+    curp_pattern = r'^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$'
+    if not re.match(curp_pattern, curp):
+        flash("El formato de la CURP es inválido", "error")
+        return redirect(url_for('dashboard'))
+
+    # Si todo está bien, procedemos a guardar
     es_emp = True if d['es_empleado'] == '1' else False
 
     conn = conectar_db()
@@ -83,14 +100,24 @@ def registrar():
         password1, rol_id, sexo, edad, direccion, es_empleado, esta_activo) 
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
     """
-    cur.execute(query, (d['nombre'], d['apellido_p'], d['apellido_m'], d['rfc'], 
-                        d['curp'], d['correo'], pass1, d['rol_id'], 
-                        d['sexo'], d['edad'], d['direccion'], es_emp))
+    cur.execute(query, (
+        d['nombre'], 
+        d['apellido_p'], 
+        d['apellido_m'], 
+        d['rfc'], 
+        d['curp'], 
+        d['correo'], 
+        pass1, 
+        d['rol_id'], 
+        d['sexo'], 
+        d['edad'], 
+        d['direccion'], 
+        es_emp
+        ))
     conn.commit()
     cur.close()
     conn.close()
 
-    # 2. Enviar mensaje de éxito
     flash("Usuario registrado con éxito", "success")
     return redirect(url_for('dashboard'))
 
