@@ -30,6 +30,16 @@
         <div><strong>DATACORE SYSTEM</strong> | SESIÓN: {{ nombre }}</div>
         <a href="/logout" style="color: #000;">[SALIR]</a>
     </header>
+   
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div style="background: {{ '#ffcccc' if category == 'error' else '#ccffcc' }}; border: 2px solid #000; padding: 10px; margin-bottom: 20px; text-align: center; font-weight: bold;">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
 
     <div class="seccion">
     <h2>Registrar Nuevo Ingreso</h2>
@@ -44,6 +54,8 @@
 
         <input type="email" name="correo" placeholder="Correo Electrónico" required>
         <input type="text" name="password1" placeholder="Contraseña Temporal" required>
+        <input type="password" name="confirmar_password" placeholder="Confirmar Contraseña" required>
+
         
         <select name="sexo">
             <option value="MASCULINO">MASCULINO</option>
@@ -83,6 +95,7 @@
                     <th>Nombre</th>
                     <th>Tipo</th>
                     <th>Correo</th>
+                    <th>RFC / CURP</th>
                     <th>Edad/Sexo</th>
                     <th>Estado</th>
                     <th>Acciones</th>
@@ -94,6 +107,7 @@
                     <td>{{ p.nombre }} {{ p.apellido_p }}</td>
                     <td>{{ 'EMPLEADO' if p.es_empleado else 'VOLUNTARIO' }}</td>
                     <td>{{ p.correo }}</td>
+                    <td>{{ p.rfc }} / {{ p.curp }}</td>
                     <td>{{ p.edad }} / {{ p.sexo[:1] }}</td>
                     <td>{{ 'ACTIVO' if p.esta_activo else 'INACTIVO' }}</td>
                     <td>
@@ -101,7 +115,7 @@
                             {{ 'REVOCAR' if p.esta_activo else 'ACTIVAR' }}
                         </a>
                         <a href="/eliminar/{{ p.id }}" class="btn-accion" onclick="return confirm('¿Confirmar baja?')">BORRAR</a>
-                        </a>
+                        <a href="/editar/{{ p.id }}" class="btn-accion">EDITAR</a>
                         <a href="/consultar/{{ p.id }}" class="btn-accion" style="background: #222; color: white;">VER EXPEDIENTE</a>
                     </td>
                 </tr>
