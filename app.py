@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import psycopg2
 from psycopg2.extras import RealDictConnection, RealDictCursor
 
@@ -66,22 +66,32 @@ def registrar():
     if 'usuario_id' not in session: return redirect(url_for('index'))
     
     d = request.form
+    pass1 = d['password1']
+    pass2 = d['confirmar_password'] # El nuevo campo del HTML
+
+    # 1. Validar que las contraseñas coincidan
+    if pass1 != pass2:
+        flash("Las contraseñas no coinciden", "error")
+        return redirect(url_for('dashboard'))
+
     es_emp = True if d['es_empleado'] == '1' else False
 
     conn = conectar_db()
     cur = conn.cursor()
-    # Agregamos rfc y curp a la consulta
     query = """
         INSERT INTO personal (nombre, apellido_p, apellido_m, rfc, curp, correo, 
         password1, rol_id, sexo, edad, direccion, es_empleado, esta_activo) 
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
     """
     cur.execute(query, (d['nombre'], d['apellido_p'], d['apellido_m'], d['rfc'], 
-                        d['curp'], d['correo'], d['password1'], d['rol_id'], 
+                        d['curp'], d['correo'], pass1, d['rol_id'], 
                         d['sexo'], d['edad'], d['direccion'], es_emp))
     conn.commit()
     cur.close()
     conn.close()
+
+    # 2. Enviar mensaje de éxito
+    flash("Usuario registrado con éxito", "success")
     return redirect(url_for('dashboard'))
 
 #cambiar estado
