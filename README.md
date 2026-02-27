@@ -16,3 +16,6 @@ El sistema se encuentra en una fase funcional al 100%, cubriendo el ciclo comple
 * **Lenguaje:** Python 3.12 con Flask.
 * **Motor de BD:** PostgreSQL 16.
 * **Herramientas de Control:** Git para el versionamiento y VS Code como IDE principal.
+
+#como instalar
+instalar este sistema es bastante facil solo descomprima el archivo .zip arme la base de datos y de ahi solo corra el ccodigo app.py de preferencia en un entormo como lo es visual studio code 
