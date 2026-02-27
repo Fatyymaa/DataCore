@@ -1,0 +1,47 @@
+
+        /* CSS PLANO - BLANCO Y NEGRO */
+        body { background: #fff; color: #000; font-family: 'Courier New', monospace; margin: 40px; line-height: 1.6; }
+        header { border-bottom: 3px solid #000; padding-bottom: 10px; margin-bottom: 30px; display: flex; justify-content: space-between; }
+        .seccion { border: 2px solid #000; padding: 20px; margin-bottom: 30px; }
+        h2 { text-transform: uppercase; margin-top: 0; background: #000; color: #fff; padding: 5px 10px; display: inline-block; }
+        
+        /* FORMULARIO */
+        .grid-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        input, select, textarea { border: 1px solid #000; padding: 8px; font-family: monospace; width: 100%; box-sizing: border-box; }
+        textarea { grid-column: span 3; }
+        .btn-negro { background: #000; color: #fff; border: none; padding: 10px 20px; cursor: pointer; text-transform: uppercase; font-weight: bold; width: 100%; }
+        
+        /* TABLA */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85em; }
+        th { background: #000; color: #fff; padding: 10px; text-align: left; text-transform: uppercase; }
+        td { border: 1px solid #000; padding: 10px; }
+        .btn-accion { border: 1px solid #000; padding: 4px 8px; text-decoration: none; color: #000; font-weight: bold; font-size: 0.9em; }
+        .btn-accion:hover { background: #000; color: #fff; }
+        
+        /* Contenedor de los botones */
+.botones-dashboard {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+/* Estilo de los botones tipo pestaña */
+.btn-tab {
+    background-color: white;
+    color: black;
+    border: 3px solid black;
+    padding: 12px 25px;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    margin: 0 10px;
+    box-shadow: 5px 5px 0px #000;
+    transition: all 0.1s; /* Para que la animación sea rápida */
+}
+
+/* Efecto al pasar el mouse y al hacer clic */
+.btn-tab:hover { background-color: #f0f0f0; }
+.btn-tab:active {
+    box-shadow: 0px 0px 0px #000; /* Quita la sombra */
+    transform: translate(5px, 5px); /* Hace que parezca que lo presionaste */
+}
