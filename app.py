@@ -44,7 +44,7 @@ def login():
             session['rol'] = usuario['rol_id']
             session['rol'] = usuario['rol_id'] # Guardamos el rol en la sesión
 
-        # 🔀 DIVISIÓN DE CAMINOS
+        # DIVISIÓN DE CAMINOS
             if session['rol'] in [1, 2]:
                 return redirect(url_for('dashboard'))
             else:
@@ -55,6 +55,14 @@ def login():
     else:
         # Este else pertenece al "if usuario and password..."
         return "Correo o contraseña incorrectos. <a href='/'>Volver a intentar</a>"
+    
+    #ruta para el registro de los trabajadores
+@app.route('/registro')
+def vista_registro():
+    return render_template('registro.html')
+
+    
+
     # Ruta para el dashboard
 @app.route('/dashboard')
 def dashboard():
@@ -100,13 +108,14 @@ def registrar():
 
     # Si todo está bien, procedemos a guardar
     es_emp = True if d['es_empleado'] == '1' else False
+    activo = False 
 
     conn = conectar_db()
     cur = conn.cursor()
     query = """
         INSERT INTO personal (nombre, apellido_p, apellido_m, rfc, curp, correo, 
-        password1, rol_id, sexo, edad, direccion, es_empleado, esta_activo) 
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+        password1, rol_id, sexo, fecha_nacimiento, direccion, es_empleado, esta_activo) 
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     cur.execute(query, (
         d['nombre'], 
@@ -118,9 +127,10 @@ def registrar():
         pass1, 
         d['rol_id'], 
         d['sexo'], 
-        d['edad'], 
+        d['fecha_nacimiento'], 
         d['direccion'], 
-        es_emp
+        es_emp,
+        activo
         ))
     conn.commit()
     cur.close()
