@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DATACORE | REGISTRO</title>
+    <style>
+        body { font-family: monospace; background: #f4f4f4; display: flex; justify-content: center; align-items: flex-start; height: 100vh; margin: 0; }
+        .card { background: white; padding: 30px; border: 2px solid #000; box-shadow: 10px 10px 0px #000; width: 400px; }
+        input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #000; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #000; color: #fff; cursor: pointer; border: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>REGISTRO DE PERSONAL</h2>
+        <form action="/registrar_usuario" method="POST">
+            <label>Introduzca nombre:</label>
+            <input type="text" name="nombre" placeholder="Nombre(s)" required>
+            <label>Apellido Paterno:</label>
+            <input type="text" name="apellido_p" placeholder="Apellido Paterno" required>
+            <label>Apellido Materno:</label>
+            <input type="text" name="apellido_m" placeholder="Apellido Materno" required>
+            <label>RFC:</label>
+            <input type="text" name="rfc" placeholder="RFC" required maxlength="13">
+            <label>CURP:</label>
+            <input type="text" name="curp" placeholder="CURP" required maxlength="18">
+            <label>correo electronico:</label>
+            <input type="email" name="correo" placeholder="Correo Electrónico" required>
+            <label>contraseña:</label>
+            <input type="password" name="password1" placeholder="Crea una Contraseña" required>
+            <label>confirme contraseña:</label>
+            <input type="password" name="confirmar_password" placeholder="Confirma tu Contraseña" required>
+            
+            <label>Fecha de Nacimiento:</label>
+            <input type="date" name="fecha_nacimiento" required>
+
+            <label>Sexo:</label>
+            <select name="sexo">
+                <option value="MASCULINO">MASCULINO</option>
+                <option value="FEMENINO">FEMENINO</option>
+            </select>
+
+              <label>Direccion:</label>
+            <input type="text" name="direccion" placeholder="Direccion" required>
+
+            <label>Rol solicitado:</label>
+            <select name="rol_id">
+                <option value="3">PSICÓLOGO</option>
+                <option value="4">MÉDICO</option>
+                <option value="5">ABOGADO</option>
+                <option value="6">TRABAJADOR SOCIAL</option>
+            </select>
+        {% if error_pass %}
+<div style="color: #d9534f; background: #f2dede; border: 1px solid #ebccd1; padding: 10px; margin-bottom: 15px; font-weight: bold; text-align: center; font-family: monospace;">
+    {{ error_pass }}
+</div>
+{% endif %}
+            <button type="submit">SOLICITAR REGISTRO</button>
+        </form>
+        <p style="text-align: center;"><a href="/">Volver al inicio</a></p>
+    </div>
+</body>
+</html>
