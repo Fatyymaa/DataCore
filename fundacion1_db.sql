@@ -12,16 +12,17 @@ CREATE TABLE personal (
     apellido_m VARCHAR(100),
     rfc VARCHAR(13),
     curp VARCHAR(18),
-    edad INTEGER,
+    fecha_nacimiento DATE,
     sexo VARCHAR(15),
     direccion TEXT,
     correo VARCHAR(100) UNIQUE,
     password1 VARCHAR(100),
-    rol_id INTEGER, -- 1: Director, 2: Coordinador
-    es_empleado BOOLEAN DEFAULT TRUE, -- TRUE: Empleado, FALSE: Voluntario
+    rol_id INTEGER, 
+    es_empleado BOOLEAN DEFAULT TRUE, 
     esta_activo BOOLEAN DEFAULT TRUE
 );
-
+-- 1: Director, 2: Coordinador
+-- TRUE: Empleado, FALSE: Voluntario
 -- 3. INSERTAR AL DIRECTOR PARA QUE PUEDAS ENTRAR
-INSERT INTO personal (nombre, apellido_p, apellido_m, rfc, curp, edad, sexo, direccion, correo, password1, rol_id, es_empleado, esta_activo)
-VALUES ('Ian', 'Director', 'General', 'RFC12345', 'CURP12345', 30, 'MASCULINO', 'Oficina Central', 'director@datacore.com', 'admin123', 1, TRUE, TRUE);
+INSERT INTO personal (nombre, apellido_p, apellido_m, rfc, curp, fecha_nacimiento, sexo, direccion, correo, password1, rol_id, es_empleado, esta_activo)
+VALUES ('Ian', 'Director', 'General', 'RFC12345', 'CURP12345', '1990-01-01', 'MASCULINO', 'Oficina Central', 'director@datacore.com', 'admin123', 1, TRUE, TRUE);
