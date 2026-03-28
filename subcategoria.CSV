@@ -1,0 +1,11 @@
+id_subcategoria,nombre,id_categoria
+1,Neuromotora,1
+2,Musculoesquelética,1
+3,Lesión Medular,1
+4,Visual,2
+5,Auditiva,2
+6,Olfativa/Gustativa/Táctil,2
+7,Del Desarrollo,3
+8,Espectro Autista,3
+9,Trastornos Mentales,4
+10,Trastornos del Ánimo,4
