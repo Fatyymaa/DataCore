@@ -230,3 +230,35 @@ def logout():
     
 if __name__ == '__main__':
         app.run(debug=True)
+
+
+# -------------------------------
+# NUEVAS PANTALLAS (REQUISITO)
+# -------------------------------
+
+@app.route('/pantalla_personas')
+def pantalla_personas():
+    if 'usuario_id' not in session:
+        return redirect(url_for('index'))
+    return render_template('personas.html')
+
+
+@app.route('/pantalla_discapacidades')
+def pantalla_discapacidades():
+    if 'usuario_id' not in session:
+        return redirect(url_for('index'))
+    return render_template('discapacidades.html')
+
+
+@app.route('/pantalla_agregar_persona')
+def pantalla_agregar_persona():
+    if 'usuario_id' not in session:
+        return redirect(url_for('index'))
+    return render_template('agregar_persona.html')
+
+
+@app.route('/pantalla_asignar_discapacidad')
+def pantalla_asignar_discapacidad():
+    if 'usuario_id' not in session:
+        return redirect(url_for('index'))
+    return render_template('asignar_discapacidad.html')
