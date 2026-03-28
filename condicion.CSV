@@ -1,0 +1,24 @@
+id_condicion,nombre,codigo_cif,id_subcategoria
+1,Parálisis cerebral,a770,1
+2,Esclerosis,a770,1
+3,Parkinson,a770,1
+4,Amputación,a730,2
+5,Malformación,a730,2
+6,Distrofia,a730,2
+7,Paraplejia,a120,3
+8,Cuadriplejia,a120,3
+9,Ceguera total,a210,4
+10,Baja visión,a210,4
+11,Sordera total,a230,5
+12,Hipoacusia,a230,5
+13,Anosmia,a240,6
+14,Hipoestesia,a260,6
+15,Síndrome de Down,a110,7
+16,Retraso global,a110,7
+17,TEA grado 1,d160,8
+18,TEA grado 2,d160,8
+19,TEA grado 3,d160,8
+20,Esquizofrenia,b152,9
+21,Psicosis,b152,9
+22,Depresión mayor,b152,10
+23,Trastorno bipolar,b152,10
