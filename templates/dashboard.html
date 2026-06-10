@@ -40,13 +40,14 @@
         <div class="seccion">
             <h2>Registrar Nuevo Ingreso</h2>
             <form action="/registrar" method="POST" class="grid-form">
+                
                 <input type="text" name="nombre" placeholder="Nombre(s)" required>
                 <input type="text" name="apellido_p" placeholder="Ap. Paterno" required>
                 <input type="text" name="apellido_m" placeholder="Ap. Materno" required>
                 
-                <input type="text" name="rfc" placeholder="RFC" maxlength="13">
-                <input type="text" name="curp" placeholder="CURP" maxlength="18">
-                <input type="date" name="fecha_nacimiento">
+                <input type="text" name="rfc" placeholder="RFC" maxlength="13" required>
+                <input type="text" name="curp" placeholder="CURP" maxlength="18" required>
+                <input type="date" name="fecha_nacimiento" required>
 
                 <input type="email" name="correo" placeholder="Correo Electrónico" required>
                 <input type="text" name="password1" placeholder="Contraseña Temporal" required>
@@ -74,14 +75,29 @@
                     <option value="8">8 | EQUIPO MULTIDISCIPLINARIO</option>
                 </select>
 
-                <textarea name="direccion" placeholder="Dirección completa..." style="grid-column: span 3;"></textarea>
+                <div style="grid-column: span 3; background: #000; color: #fff; padding: 5px; font-weight: bold; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; font-size: 11px; text-align: center; font-family: monospace;">
+                    Domicilio Normalizado
+                </div>
+
+                <input type="text" name="estado" placeholder="Estado (Ej. CDMX)" required>
+                <input type="text" name="municipio" placeholder="Municipio o Alcaldía" required>
+                <input type="text" name="colonia" placeholder="Colonia" required>
+
+                <input type="text" name="cp" placeholder="Código Postal (CP)" maxlength="10" required>
+                <input type="text" name="calle" placeholder="Calle o Avenida" required>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" name="numero_ext" placeholder="Ext." required style="width: 50%; font-family: monospace; padding: 10px; border: 1px solid #000; box-sizing: border-box;">
+                    <input type="text" name="numero_int" placeholder="Int. (Opt)" style="width: 50%; font-family: monospace; padding: 10px; border: 1px solid #000; box-sizing: border-box;">
+                </div>
                 
                 <div style="grid-column: span 3; margin-top: 20px;">
                     <button type="submit" class="btn-negro">Ejecutar Registro</button>
                 </div>
             </form>
         </div>
-    </div> <div id="vista-lista">
+    </div> 
+
+    <div id="vista-lista">
         <div class="seccion">
             <h2>Listado de Personal Registrado</h2>
             <table>
@@ -91,7 +107,7 @@
                         <th>Tipo</th>
                         <th>Correo</th>
                         <th>RFC / CURP</th>
-                        <th>Edad/Sexo</th>
+                        <th>Edad / Sexo</th>
                         <th>Estado</th>
                         <th>Acciones</th>
                     </tr>
@@ -99,34 +115,70 @@
                 <tbody>
                     {% for p in personal %}
                     <tr>
-                        <td>{{ p.nombre }} {{ p.apellido_p }}</td>
+                        <td>{{ p.nombre }} {{ p.apellido_p }} {{ p.apellido_m }}</td>
                         <td>{{ 'EMPLEADO' if p.es_empleado else 'VOLUNTARIO' }}</td>
                         <td>{{ p.correo }}</td>
                         <td>{{ p.rfc }} / {{ p.curp }}</td>
-                        <td>{{ p.edad }} / {{ p.sexo[:1] }}</td>
+                        
+                        <td>
+                            <span class="edad-calculada" data-fecha="{{ p.fecha_nacimiento }}">--</span>
+                            / {{ p.sexo[:1] }}
+                        </td>
+                        
                         <td>{{ 'ACTIVO' if p.esta_activo else 'INACTIVO' }}</td>
                         <td>
-                            <a href="/estado/{{ p.id }}/{{ p.esta_activo }}" class="btn-accion">
-                                {{ 'REVOCAR' if p.esta_activo else 'ACTIVAR' }}
-                            </a>
-                            <a href="/eliminar/{{ p.id }}" class="btn-accion" onclick="return confirm('¿Confirmar baja?')">BORRAR</a>
-                            <a href="/editar/{{ p.id }}" class="btn-accion">EDITAR</a>
-                            <a href="/consultar/{{ p.id }}" class="btn-accion" style="background: #222; color: white;">VER EXPEDIENTE</a>
+                            <div style="display: flex; gap: 5px;">
+                                <a href="/estado/{{ p.id }}/{{ p.esta_activo }}" class="btn-accion">
+                                    {{ 'REVOCAR' if p.esta_activo else 'ACTIVAR' }}
+                                </a>
+                                <a href="/eliminar/{{ p.id }}" class="btn-accion" onclick="return confirm('¿Confirmar baja?')">BORRAR</a>
+                                <a href="/editar/{{ p.id }}" class="btn-accion">EDITAR</a>
+                                <a href="/consultar/{{ p.id }}" class="btn-accion" style="background: #222; color: white;">VER EXPEDIENTE</a>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-    </div> <script>
+    </div> 
+
+    <script>
         function cambiarVista(vista) {
-            // Ocultamos todo
             document.getElementById('vista-registro').style.display = 'none';
             document.getElementById('vista-lista').style.display = 'none';
-            
-            // Mostramos solo la caja que queremos
             document.getElementById('vista-' + vista).style.display = 'block';
         }
+
+        // CALCULO DE EDAD
+        document.addEventListener("DOMContentLoaded", function() {
+            const celdasEdad = document.querySelectorAll('.edad-calculada');
+            const hoy = new Date();
+
+            celdasEdad.forEach(celda => {
+                const fechaStr = celda.getAttribute('data-fecha');
+                if (fechaStr && fechaStr !== 'None' && fechaStr !== '') {
+                    const partes = fechaStr.split('-');
+                    if (partes.length === 3) {
+                        const anio = parseInt(partes[0]);
+                        const mes = parseInt(partes[1]) - 1; 
+                        const dia = parseInt(partes[2]);
+                        
+                        const cumpleanos = new Date(anio, mes, dia);
+                        let edad = hoy.getFullYear() - cumpleanos.getFullYear();
+                        const mesDiferencia = hoy.getMonth() - cumpleanos.getMonth();
+                        
+                        if (mesDiferencia < 0 || (mesDiferencia === 0 && hoy.getDate() < cumpleanos.getDate())) {
+                            edad--;
+                        }
+                        
+                        celda.textContent = edad + " años";
+                    }
+                } else {
+                    celda.textContent = "N/A";
+                }
+            });
+        });
     </script>
 </body>
 </html>
