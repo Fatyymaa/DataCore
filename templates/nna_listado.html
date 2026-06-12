@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>DATACORE | LISTADO NNA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <header>
+        <div><strong>CORE-NNA SYSTEM</strong> | MODULO 2: EXPEDIENTES GENERALES NNA</div>
+        <a href="/dashboard" style="color: #000;">[VOLVER AL PANEL]</a>
+    </header>
+
+    <div style="padding: 20px;">
+        <h2>Listado de Ninos, Ninas y Adolescentes (NNA)</h2>
+        <p>Los estatus de atencion se calculan de manera automatizada a traves de las relaciones de sus casos.</p>
+        
+        <table style="width: 100%; border-collapse: collapse; background: white; border: 2px solid #000; box-shadow: 6px 6px 0px #000;">
+            <thead>
+                <tr style="background: #000; color: white; text-align: left;">
+                    <th style="padding: 10px;">Folio</th>
+                    <th style="padding: 10px;">Nombre del Menor</th>
+                    <th style="padding: 10px;">CURP</th>
+                    <th style="padding: 10px;">Escolaridad / Sexo</th>
+                    <th style="padding: 10px;">Estatus Operativo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for n in niños %}
+                <tr style="border-bottom: 1px solid #000;">
+                    <td style="padding: 10px; font-family: monospace; font-weight: bold;">{{ n.folio_nna }}</td>
+                    <td style="padding: 10px;">{{ n.apellido_p }} {{ n.apellido_m }}, {{ n.nombre }}</td>
+                    <td style="padding: 10px; font-family: monospace;">{{ n.curp }}</td>
+                    <td style="padding: 10px;">{{ n.escolaridad }} / {{ n.sexo[:1] }}</td>
+                    <td style="padding: 10px;">
+                        {% if n.estatus_atencion == 'En Atencion' %}
+                            <span style="background: #fff3cd; color: #856404; padding: 4px 8px; font-weight: bold; border: 1px solid #856404;">EN ATENCION</span>
+                        {% elif n.estatus_atencion == 'Atendido (Casos Cerrados)' %}
+                            <span style="background: #d4edda; color: #155724; padding: 4px 8px; font-weight: bold; border: 1px solid #155724;">ATENDIDO</span>
+                        {% else %}
+                            <span style="background: #e2e3e5; color: #383d41; padding: 4px 8px; font-weight: bold; border: 1px solid #383d41;">REGISTRADO (SIN CASO)</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="padding: 20px; text-align: center; font-weight: bold;">No hay menores registrados en el sistema actualmente.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

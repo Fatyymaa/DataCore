@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>DATACORE | REGISTRO NNA</title>
+    <style>
+        body { font-family: monospace; background: #f4f4f4; display: flex; justify-content: center; align-items: flex-start; height: auto; padding: 40px 0; margin: 0; }
+        .card { background: white; padding: 30px; border: 2px solid #000; box-shadow: 10px 10px 0px #000; width: 450px; }
+        input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #000; box-sizing: border-box; font-family: monospace; }
+        button { width: 100%; padding: 10px; background: #000; color: #fff; cursor: pointer; border: none; font-weight: bold; font-family: monospace; margin-top: 15px; }
+        button:hover { background: #333; }
+        hr { border: 0; border-top: 2px dashed #000; margin: 20px 0; }
+        .seccion-titulo { font-weight: bold; text-transform: uppercase; margin-top: 15px; display: block; background: #000; color: #fff; padding: 5px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>REGISTRO DE NNA</h2>
+        <p style="margin-top: -10px; font-size: 11px; color: #666;">Modulo 2: Ninos, Ninas y Adolescentes</p>
+
+        <form action="/nna/registrar" method="POST">
+
+            <span class="seccion-titulo">Datos Identificadores</span>
+
+            <label>Folio del NNA (Opcional, max 10 caracteres):</label>
+            <input type="text" name="folio_nna" maxlength="10" placeholder="Vacio para auto-generar">
+
+            <label>Nombre(s):</label>
+            <input type="text" name="nombre" placeholder="Nombres" required>
+
+            <label>Apellido Paterno:</label>
+            <input type="text" name="apellido_p" placeholder="Primer apellido" required>
+
+            <label>Apellido Materno:</label>
+            <input type="text" name="apellido_m" placeholder="Segundo apellido" required>
+
+            <!-- FIX: la CURP ya no es obligatoria (muchos NNA llegan sin ella).
+                 Si se captura, el backend valida su formato. -->
+            <label>CURP (Opcional):</label>
+            <input type="text" name="curp" placeholder="CURP" maxlength="18">
+
+            <label>Fecha de Nacimiento:</label>
+            <input type="date" name="fecha_nacimiento" required>
+
+            <!-- FIX: antes era un input de texto libre, pero la columna
+                 lugar_nacimiento de la tabla nna es un numero (FK a
+                 entidad_federativa). Ahora es un select con el catalogo
+                 que ya manda la ruta de Python. -->
+            <label>Lugar de Nacimiento (Estado):</label>
+            <select name="lugar_nacimiento">
+                <option value="">-- No especificado --</option>
+                {% for ent in entidades %}
+                    <option value="{{ ent.id_ent }}">{{ ent.nom_ent }}</option>
+                {% endfor %}
+            </select>
+
+            <label>Sexo asignado:</label>
+            <select name="id_sexo" required>
+                <option value="" disabled selected>-- Selecciona un sexo --</option>
+                {% for s in sexos %}
+                    <option value="{{ s.id_sexo }}">{{ s.nom_sexo }}</option>
+                {% endfor %}
+            </select>
+
+            <label>Nivel de Escolaridad:</label>
+            <select name="id_esc" required>
+                <option value="" disabled selected>-- Selecciona escolaridad --</option>
+                <!-- FIX: habia una etiqueta </option> suelta aqui -->
+                {% for e in escolaridades %}
+                    <option value="{{ e.id_esc }}">{{ e.nom_esc }}</option>
+                {% endfor %}
+            </select>
+
+            <hr>
+            <span class="seccion-titulo">Condiciones y Lengua</span>
+
+            <label>Lengua/Variante Linguistica:</label>
+            <select name="id_len">
+                <option value="">Ninguna / No especifica</option>
+                {% for l in lenguas %}
+                    <option value="{{ l.id_len }}">{{ l.variante_len }}</option>
+                {% endfor %}
+            </select>
+
+            <label>Condicion Inicial:</label>
+            <select name="id_condicion">
+                <option value="">Ninguna / Sin diagnostico actual</option>
+                {% for c in condiciones %}
+                    <!-- Mostramos la categoria para que sea mas claro -->
+                    <option value="{{ c.id_condicion }}">{{ c.categoria }} | {{ c.nombre }}</option>
+                {% endfor %}
+            </select>
+
+            <hr>
+            <span class="seccion-titulo">Direccion o Residencia Actual</span>
+
+            <label>Estado:</label>
+            <input type="text" name="estado" placeholder="Ej. CDMX" required>
+
+            <label>Municipio / Alcaldia:</label>
+            <input type="text" name="municipio" placeholder="Ej. Gustavo A. Madero" required>
+
+            <label>Colonia:</label>
+            <input type="text" name="colonia" placeholder="Ej. La Escalera" required>
+
+            <label>Codigo Postal (CP):</label>
+            <input type="text" name="cp" placeholder="Ej. 07320" required maxlength="10">
+
+            <label>Calle:</label>
+            <input type="text" name="calle" placeholder="Ej. Av. Juan de Dios Batiz" required>
+
+            <label>Numero Exterior:</label>
+            <input type="text" name="numero_ext" placeholder="Ej. 123" required>
+
+            <label>Numero Interior (Opcional):</label>
+            <input type="text" name="numero_int" placeholder="Ej. Depto 4B">
+
+            <button type="submit">DAR DE ALTA NNA</button>
+        </form>
+        <p style="text-align: center;"><a href="/dashboard" style="color:#000;">Volver al Dashboard</a></p>
+    </div>
+</body>
+</html>

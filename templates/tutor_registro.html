@@ -15,14 +15,14 @@
 </head>
 <body>
     <div class="card">
-        <h2>🤝 REGISTRO DE TUTORES</h2>
-        <p style="margin-top: -10px; font-size: 11px; color: #666;">Módulo 3: Familiares y Responsables Legales</p>
+        <h2>REGISTRO DE TUTORES</h2>
+        <p style="margin-top: -10px; font-size: 11px; color: #666;">Modulo 3: Familiares y Responsables Legales</p>
         
         <form action="/tutor/registrar" method="POST">
             
-            <span class="seccion-titulo">Vinculación Obligatoria</span>
+            <span class="seccion-titulo">Vinculacion Obligatoria</span>
 
-            <label>Asignar este tutor al Niño(a):</label>
+            <label>Asignar este tutor al Nino(a):</label>
             <select name="id_nna" required>
                 <option value="" disabled selected>-- Selecciona al NNA protegido --</option>
                 {% for n in niños %}
@@ -32,15 +32,15 @@
 
             <label>Parentesco con el menor:</label>
             <select name="id_paren" required>
-                <option value="" disabled selected>-- Tipo de Relación --</option>
+                <option value="" disabled selected>-- Tipo de Relacion --</option>
                 {% for p in parentescos %}
                     <option value="{{ p.id_paren }}">{{ p.nom_paren }}</option>
                 {% endfor %}
             </select>
 
-            <label>¿Posee la Patria Potestad / Tutoría Legal?:</label>
+            <label>¿Posee la Patria Potestad / Tutoria Legal?:</label>
             <select name="tutor_legal" required>
-                <option value="1">SÍ, ES EL TUTOR LEGAL</option>
+                <option value="1">SI, ES EL TUTOR LEGAL</option>
                 <option value="0">NO, SOLO FAMILIAR / CONTACTO</option>
             </select>
 
@@ -70,31 +70,31 @@
                 {% endfor %}
             </select>
 
-            <label>Ocupación principal:</label>
+            <label>Ocupacion principal:</label>
             <input type="text" name="ocupacion" placeholder="Ej. Empleado de comercio, Hogar" required>
 
             <hr>
-            <span class="seccion-titulo">Dirección del Tutor</span>
+            <span class="seccion-titulo">Direccion del Tutor</span>
 
             <label>Estado:</label>
             <input type="text" name="estado" placeholder="Ej. CDMX" required>
 
-            <label>Municipio / Alcaldía:</label>
+            <label>Municipio / Alcaldia:</label>
             <input type="text" name="municipio" placeholder="Ej. Gustavo A. Madero" required>
 
             <label>Colonia:</label>
             <input type="text" name="colonia" placeholder="Ej. La Escalera" required>
 
-            <label>Código Postal (CP):</label>
+            <label>Codigo Postal (CP):</label>
             <input type="text" name="cp" placeholder="Ej. 07320" required maxlength="10">
 
             <label>Calle:</label>
-            <input type="text" name="calle" placeholder="Ej. Av. Juan de Dios Bátiz" required>
+            <input type="text" name="calle" placeholder="Ej. Av. Juan de Dios Batiz" required>
 
-            <label>Número Exterior:</label>
+            <label>Numero Exterior:</label>
             <input type="text" name="numero_ext" placeholder="Ej. 45" required>
 
-            <label>Número Interior (Opcional):</label>
+            <label>Numero Interior (Opcional):</label>
             <input type="text" name="numero_int" placeholder="Ej. Casa B">
 
             <button type="submit">VINCULAR Y GUARDAR TUTOR</button>

@@ -2,183 +2,307 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>DATACORE | PANEL CONTROL</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <title>DATACORE | PANEL DE CONTROL</title>
+    <style>
+        /* Estilos Base Estilo Terminal / Monospace */
+        body { font-family: monospace; background: #f4f4f4; margin: 0; padding: 0; }
+        header { background: #000; color: #fff; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+        header a { color: #fff; text-decoration: none; border: 1px solid #fff; padding: 5px 10px; }
+        header a:hover { background: #fff; color: #000; }
+        
+        /* Contenedor Principal */
+        .dashboard-container { display: flex; min-height: calc(100vh - 52px); }
+        
+        /* Barra Lateral Izquierda */
+        .sidebar { width: 280px; background: #fff; border-right: 2px solid #000; padding: 20px 10px; box-sizing: border-box; }
+        .sidebar h3 { text-transform: uppercase; font-size: 12px; color: #666; margin-left: 5px; letter-spacing: 1px; margin-top: 20px; }
+        .tab-btn { width: 100%; text-align: left; padding: 12px; background: #fff; border: 1px solid #000; font-family: monospace; font-weight: bold; cursor: pointer; margin-bottom: 8px; box-shadow: 3px 3px 0px #000; text-transform: uppercase; display: block; text-decoration: none; color: #000; box-sizing: border-box; }
+        .tab-btn:hover { background: #000; color: #fff; box-shadow: none; transform: translate(3px, 3px); }
+        .tab-btn.active { background: #000; color: #fff; box-shadow: none; }
+
+        /* Área de Contenido */
+        .main-content { flex: 1; padding: 30px; }
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+
+        /* PANTALLA DE BIENVENIDA Y TARJETAS */
+        .welcome-box { background: #fff; border: 2px solid #000; box-shadow: 8px 8px 0px #000; padding: 30px; margin-bottom: 30px; }
+        .modules-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 25px; }
+        .mod-card { background: #fff; border: 2px solid #000; box-shadow: 5px 5px 0px #000; padding: 20px; cursor: pointer; transition: all 0.2s; }
+        .mod-card:hover { transform: translate(3px, 3px); box-shadow: 2px 2px 0px #000; background: #fafafa; }
+        .mod-card h4 { margin: 0 0 10px 0; text-transform: uppercase; font-size: 16px; border-bottom: 2px solid #000; padding-bottom: 5px; }
+        .mod-card p { font-size: 12px; color: #444; line-height: 1.4; }
+        .mod-card .card-actions { margin-top: 15px; display: flex; flex-direction: column; gap: 8px; }
+
+        /* Tablas y Formularios */
+        table { width: 100%; border-collapse: collapse; background: white; border: 2px solid #000; box-shadow: 5px 5px 0px #000; margin-top: 15px; }
+        th { background: #000; color: #fff; padding: 10px; text-align: left; text-transform: uppercase; }
+        td { padding: 10px; border-bottom: 1px solid #000; }
+        
+        .form-container { background: white; padding: 25px; border: 2px solid #000; box-shadow: 7px 7px 0px #000; max-width: 600px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 12px; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #000; font-family: monospace; box-sizing: border-box; }
+        
+        /* Botones de Acción */
+        .btn-submit { background: #000; color: #fff; border: none; padding: 10px 20px; font-weight: bold; font-family: monospace; cursor: pointer; text-transform: uppercase; }
+        .btn-submit:hover { background: #333; }
+        .btn-action { padding: 4px 8px; border: 1px solid #000; background: #fff; color: #000; text-decoration: none; font-size: 11px; font-weight: bold; }
+        .btn-action:hover { background: #000; color: #fff; }
+        
+        /* Mensajes Flash */
+        .flash-msg { padding: 10px; margin-bottom: 20px; border: 1px solid #000; font-weight: bold; }
+        .flash-success { background: #d4edda; color: #155724; }
+        .flash-error { background: #f8d7da; color: #721c24; }
+    </style>
 </head>
 <body>
 
     <header>
-        <div><strong>CORE-NNA SYSTEM</strong> | SESIÓN: {{ nombre }}</div>
-        <a href="/logout" style="color: #000;">[SALIR]</a>
+        <div><strong>DATACORE SYSTEM</strong> | PANEL DE CONTROL DE OPERACIONES</div>
+        <div>USUARIO: {{ nombre }} | <a href="/logout">CERRAR SESION</a></div>
     </header>
 
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2>PANEL DE CONTROL (ADMIN)</h2>
-        <a href="/home" style="background: #000; color: #fff; padding: 10px; text-decoration: none; font-weight: bold; font-size: 12px;">
-            IR A VISTA HOME
-        </a>
-    </div>
+    <div class="dashboard-container">
+        <div class="sidebar">
+            <button class="tab-btn active" id="btn-inicio" onclick="cambiarPestaña('inicio-panel')">Inicio del Panel</button>
+            
+            <h3>Módulo 1: Personal</h3>
+            <button class="tab-btn" onclick="cambiarPestaña('registro-personal')">Registrar Personal</button>
+            <button class="tab-btn" onclick="cambiarPestaña('lista-personal')">M1: Lista Personal</button>
+            
+            <h3>Módulo 2: Infancias (NNA)</h3>
+            <a href="/nna/registrar" class="tab-btn">Registrar NNA</a>
+            <a href="/nna" class="tab-btn">M2: Modulo NNA</a>
 
-    <div class="botones-dashboard">
-        <button onclick="cambiarVista('registro')" class="btn-tab">REGISTRAR USUARIO</button>
-        <button onclick="cambiarVista('lista')" class="btn-tab">MOSTRAR LISTA DE EMPLEADOS</button>
-    </div>
+            <h3>Módulo 3: Familias</h3>
+            <a href="/tutor/registrar" class="tab-btn">Registrar Tutor</a>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div style="background: {{ '#ffcccc' if category == 'error' else '#ccffcc' }}; border: 2px solid #000; padding: 10px; margin-bottom: 20px; text-align: center; font-weight: bold;">
-            {{ message }}
-          </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-
-    <hr style="border: 1px solid #eee; margin-bottom: 30px;">
-
-    <div id="vista-registro" style="display: none;">
-        <div class="seccion">
-            <h2>Registrar Nuevo Ingreso</h2>
-            <form action="/registrar" method="POST" class="grid-form">
-                
-                <input type="text" name="nombre" placeholder="Nombre(s)" required>
-                <input type="text" name="apellido_p" placeholder="Ap. Paterno" required>
-                <input type="text" name="apellido_m" placeholder="Ap. Materno" required>
-                
-                <input type="text" name="rfc" placeholder="RFC" maxlength="13" required>
-                <input type="text" name="curp" placeholder="CURP" maxlength="18" required>
-                <input type="date" name="fecha_nacimiento" required>
-
-                <input type="email" name="correo" placeholder="Correo Electrónico" required>
-                <input type="text" name="password1" placeholder="Contraseña Temporal" required>
-                <input type="password" name="confirmar_password" placeholder="Confirmar Contraseña" required>
-
-                <select name="sexo">
-                    <option value="MASCULINO">MASCULINO</option>
-                    <option value="FEMENINO">FEMENINO</option>
-                    <option value="OTRO">OTRO</option>
-                </select>
-
-                <select name="es_empleado">
-                    <option value="1">EMPLEADO</option>
-                    <option value="0">VOLUNTARIO</option>
-                </select>
-
-                <select name="rol_id">
-                    <option value="1">1 | DIRECTOR</option>
-                    <option value="2">2 | COORDINADOR</option>
-                    <option value="3">3 | PSICOLOGO</option>
-                    <option value="4">4 | DOCTOR</option>
-                    <option value="5">5 | ABOGADO</option>
-                    <option value="6">6 | TRABAJADOR SOCIAL</option>
-                    <option value="7">7 | ANALISTA</option>
-                    <option value="8">8 | EQUIPO MULTIDISCIPLINARIO</option>
-                </select>
-
-                <div style="grid-column: span 3; background: #000; color: #fff; padding: 5px; font-weight: bold; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; font-size: 11px; text-align: center; font-family: monospace;">
-                    Domicilio Normalizado
-                </div>
-
-                <input type="text" name="estado" placeholder="Estado (Ej. CDMX)" required>
-                <input type="text" name="municipio" placeholder="Municipio o Alcaldía" required>
-                <input type="text" name="colonia" placeholder="Colonia" required>
-
-                <input type="text" name="cp" placeholder="Código Postal (CP)" maxlength="10" required>
-                <input type="text" name="calle" placeholder="Calle o Avenida" required>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" name="numero_ext" placeholder="Ext." required style="width: 50%; font-family: monospace; padding: 10px; border: 1px solid #000; box-sizing: border-box;">
-                    <input type="text" name="numero_int" placeholder="Int. (Opt)" style="width: 50%; font-family: monospace; padding: 10px; border: 1px solid #000; box-sizing: border-box;">
-                </div>
-                
-                <div style="grid-column: span 3; margin-top: 20px;">
-                    <button type="submit" class="btn-negro">Ejecutar Registro</button>
-                </div>
-            </form>
+            <h3>Módulo 4: Casos</h3>
+            <a href="/casos/registrar" class="tab-btn">Abrir Caso</a>
+            <a href="/casos" class="tab-btn">M4: Expedientes</a>
         </div>
-    </div> 
 
-    <div id="vista-lista">
-        <div class="seccion">
-            <h2>Listado de Personal Registrado</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Tipo</th>
-                        <th>Correo</th>
-                        <th>RFC / CURP</th>
-                        <th>Edad / Sexo</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in personal %}
-                    <tr>
-                        <td>{{ p.nombre }} {{ p.apellido_p }} {{ p.apellido_m }}</td>
-                        <td>{{ 'EMPLEADO' if p.es_empleado else 'VOLUNTARIO' }}</td>
-                        <td>{{ p.correo }}</td>
-                        <td>{{ p.rfc }} / {{ p.curp }}</td>
-                        
-                        <td>
-                            <span class="edad-calculada" data-fecha="{{ p.fecha_nacimiento }}">--</span>
-                            / {{ p.sexo[:1] }}
-                        </td>
-                        
-                        <td>{{ 'ACTIVO' if p.esta_activo else 'INACTIVO' }}</td>
-                        <td>
-                            <div style="display: flex; gap: 5px;">
-                                <a href="/estado/{{ p.id }}/{{ p.esta_activo }}" class="btn-accion">
-                                    {{ 'REVOCAR' if p.esta_activo else 'ACTIVAR' }}
-                                </a>
-                                <a href="/eliminar/{{ p.id }}" class="btn-accion" onclick="return confirm('¿Confirmar baja?')">BORRAR</a>
-                                <a href="/editar/{{ p.id }}" class="btn-accion">EDITAR</a>
-                                <a href="/consultar/{{ p.id }}" class="btn-accion" style="background: #222; color: white;">VER EXPEDIENTE</a>
-                            </div>
-                        </td>
-                    </tr>
+        <div class="main-content">
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-msg flash-{{ category }}">{{ message }}</div>
                     {% endfor %}
-                </tbody>
-            </table>
+                {% endif %}
+            {% endwith %}
+
+            <div id="inicio-panel" class="view-section active">
+                <div class="welcome-box">
+                    <h1 style="margin: 0 0 10px 0; text-transform: uppercase;">¡Bienvenida al Sistema, {{ nombre }}!</h1>
+                    <p style="margin: 0; color: #555;">Selecciona a continuación el módulo o la acción operativa que deseas ejecutar el día de hoy:</p>
+                </div>
+
+                <div class="modules-grid">
+                    <div class="mod-card">
+                        <h4>Módulo 1: Personal</h4>
+                        <p>Gestión de altas, asignación de roles de trabajo, bajas de empleados internos y control de voluntarios operativos.</p>
+                        <div class="card-actions">
+                            <button class="btn-submit" style="font-size:11px;" onclick="cambiarPestaña('registro-personal')">-> Registrar Nuevo Personal</button>
+                            <button class="btn-submit" style="font-size:11px; background:#444;" onclick="cambiarPestaña('lista-personal')">-> Ver Listado Existente</button>
+                        </div>
+                    </div>
+
+                    <div class="mod-card">
+                        <h4>Módulo 2: Infancias (NNA)</h4>
+                        <p>Registro y resguardo de datos de Niñas, Niños y Adolescentes protegidos, control de escolaridad y asignación médica inicial.</p>
+                        <div class="card-actions">
+                            <a href="/nna/registrar" class="btn-submit" style="font-size:11px; text-decoration:none; text-align:center;">-> Registrar Nuevo NNA</a>
+                            <a href="/nna" class="btn-submit" style="font-size:11px; background:#444; text-decoration:none; text-align:center;">-> Ver Expedientes NNA</a>
+                        </div>
+                    </div>
+
+                    <div class="mod-card">
+                        <h4>Módulo 3: Familias</h4>
+                        <p>Vinculación legal de padres de familia, tutores o contactos de emergencia directo a las fichas de los menores protegidos.</p>
+                        <div class="card-actions">
+                            <a href="/tutor/registrar" class="btn-submit" style="font-size:11px; text-decoration:none; text-align:center;">-> Registrar y Vincular Tutor</a>
+                        </div>
+                    </div>
+
+                    <div class="mod-card">
+                        <h4>Módulo 4: Casos</h4>
+                        <p>Apertura de casos por vulneración de derechos (Art. 123 LGDNNA), asignación de equipo, seguimientos y restitución de derechos.</p>
+                        <div class="card-actions">
+                            <a href="/casos/registrar" class="btn-submit" style="font-size:11px; text-decoration:none; text-align:center;">-> Abrir Nuevo Caso</a>
+                            <a href="/casos" class="btn-submit" style="font-size:11px; background:#444; text-decoration:none; text-align:center;">-> Ver Expedientes de Casos</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="registro-personal" class="view-section">
+                <h2>Registrar Nuevo Ingreso de Personal</h2>
+                <div class="form-container">
+                    <form action="/registrar" method="POST">
+                        <div class="form-group">
+                            <label>Nombre(s):</label>
+                            <input type="text" name="nombre" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Apellido Paterno:</label>
+                            <input type="text" name="apellido_p" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Apellido Materno:</label>
+                            <input type="text" name="apellido_m" required>
+                        </div>
+                        <div class="form-group">
+                            <label>RFC:</label>
+                            <input type="text" name="rfc" required maxlength="13">
+                        </div>
+                        <div class="form-group">
+                            <label>CURP:</label>
+                            <input type="text" name="curp" required maxlength="18">
+                        </div>
+                        <div class="form-group">
+                            <label>Correo Electrónico:</label>
+                            <input type="email" name="correo" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Contraseña de Acceso:</label>
+                            <input type="password" name="password1" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Confirmar Contraseña:</label>
+                            <input type="password" name="confirmar_password" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Rol Asignado (ID):</label>
+                            <select name="role_id" required>
+                                <option value="1">1 - Director</option>
+                                <option value="2">2 - Coordinador</option>
+                                <option value="3">3 - Psicólogo</option>
+                                <option value="4">4 - Abogado</option>
+                                <option value="5">5 - Trabajador Social</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Sexo:</label>
+                            <select name="sexo" required>
+                                <option value="FEMENINO">FEMENINO</option>
+                                <option value="MASCULINO">MASCULINO</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha de Nacimiento:</label>
+                            <input type="date" name="fecha_nacimiento" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo de Personal:</label>
+                            <select name="es_empleado">
+                                <option value="1">Empleado Interno (Nómina)</option>
+                                <option value="0">Voluntario / Externo</option>
+                            </select>
+                        </div>
+
+                        <h3 style="font-size:12px; margin-top:20px; border-bottom:1px solid #000; padding-bottom:5px;">Dirección Domiciliaria</h3>
+                        
+                        <div class="form-group">
+                            <label>Estado / Entidad:</label>
+                            <input type="text" name="estado" placeholder="Ej. CDMX" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Municipio o Alcaldía:</label>
+                            <input type="text" name="municipio" placeholder="Ej. Gustavo A. Madero" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Colonia:</label>
+                            <input type="text" name="colonia" placeholder="Ej. La Escalera" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Código Postal:</label>
+                            <input type="text" name="cp" placeholder="Ej. 07320" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Calle:</label>
+                            <input type="text" name="calle" placeholder="Ej. Av. Juan de Dios Bátiz" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Número Exterior:</label>
+                            <input type="text" name="numero_ext" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Número Interior (Opcional):</label>
+                            <input type="text" name="numero_int">
+                        </div>
+
+                        <button type="submit" class="btn-submit">Registrar Alta</button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="lista-personal" class="view-section">
+                <h2>Listado de Personal Registrado</h2>
+                <p>Personal activo e inactivo con acceso a la plataforma normalizada.</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre Completo</th>
+                            <th>RFC / CURP</th>
+                            <th>Correo</th>
+                            <th>Rol</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for usuario in personal %}
+                        <tr>
+                            <td>{{ usuario.id }}</td>
+                            <td>{{ usuario.apellido_p }} {{ usuario.apellido_m }} {{ usuario.nombre }}</td>
+                            <td>
+                                <small><strong>RFC:</strong> {{ usuario.rfc }}<br><strong>CURP:</strong> {{ usuario.curp }}</small>
+                            </td>
+                            <td>{{ usuario.correo }}</td>
+                            <td>{{ usuario.rol }}</td>
+                            <td>
+                                {% if usuario.esta_activo %}
+                                    <span style="color: green; font-weight: bold;">ACTIVO</span>
+                                {% else %}
+                                    <span style="color: red; font-weight: bold;">INACTIVO</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a class="btn-action" href="/consultar/{{ usuario.id }}">Ver</a>
+                                <a class="btn-action" href="/editar/{{ usuario.id }}">Editar</a>
+                                <a class="btn-action" href="/estado/{{ usuario.id }}/{{ usuario.esta_activo }}">Alternar</a>
+                                <a class="btn-action" href="/eliminar/{{ usuario.id }}" onclick="return confirm('¿Seguro que deseas eliminar?')">Eliminar</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
         </div>
-    </div> 
+    </div>
 
     <script>
-        function cambiarVista(vista) {
-            document.getElementById('vista-registro').style.display = 'none';
-            document.getElementById('vista-lista').style.display = 'none';
-            document.getElementById('vista-' + vista).style.display = 'block';
-        }
-
-        // CALCULO DE EDAD
-        document.addEventListener("DOMContentLoaded", function() {
-            const celdasEdad = document.querySelectorAll('.edad-calculada');
-            const hoy = new Date();
-
-            celdasEdad.forEach(celda => {
-                const fechaStr = celda.getAttribute('data-fecha');
-                if (fechaStr && fechaStr !== 'None' && fechaStr !== '') {
-                    const partes = fechaStr.split('-');
-                    if (partes.length === 3) {
-                        const anio = parseInt(partes[0]);
-                        const mes = parseInt(partes[1]) - 1; 
-                        const dia = parseInt(partes[2]);
-                        
-                        const cumpleanos = new Date(anio, mes, dia);
-                        let edad = hoy.getFullYear() - cumpleanos.getFullYear();
-                        const mesDiferencia = hoy.getMonth() - cumpleanos.getMonth();
-                        
-                        if (mesDiferencia < 0 || (mesDiferencia === 0 && hoy.getDate() < cumpleanos.getDate())) {
-                            edad--;
-                        }
-                        
-                        celda.textContent = edad + " años";
-                    }
-                } else {
-                    celda.textContent = "N/A";
-                }
+        function cambiarPestaña(idSeccion) {
+            document.querySelectorAll('.view-section').forEach(seccion => {
+                seccion.classList.remove('active');
             });
-        });
+            document.querySelectorAll('.sidebar .tab-btn').forEach(boton => {
+                boton.classList.remove('active');
+            });
+
+            document.getElementById(idSeccion).classList.add('active');
+            
+            const botonClickeado = Array.from(document.querySelectorAll('.sidebar .tab-btn'))
+                .find(btn => btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(idSeccion));
+            
+            if (botonClickeado) {
+                botonClickeado.classList.add('active');
+            }
+        }
     </script>
 </body>
 </html>
