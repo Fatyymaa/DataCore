@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>DATACORE | Detalle NNA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/profesional.css') }}">
+</head>
+<body>
+    <header class="prof-header">
+        <div>
+            <strong>DETALLE DE NNA:</strong> {{ nna.nombre }} {{ nna.apellido_p }}
+        </div>
+        <a href="/dashboard" style="color: #fff;">VOLVER AL DASHBOARD</a>
+    </header>
+
+    <main style="padding: 20px;">
+        <div class="case-card">
+            <h2>Datos del NNA</h2>
+            <div class="info-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <p><strong>Nombre:</strong> {{ nna.nombre }}</p>
+                <p><strong>Primer Apellido:</strong> {{ nna.apellido_p }}</p>
+                <p><strong>Segundo Apellido:</strong> {{ nna.apellido_m }}</p>
+                <p><strong>CURP:</strong> {{ nna.curp }}</p>
+                <p><strong>Fecha Nacimiento:</strong> {{ nna.fecha_nacimiento }}</p>
+            </div>
+            
+            <h2 style="margin-top: 20px;">Datos de Domicilio</h2>
+            <div class="info-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <p><strong>Calle:</strong> {{ nna.calle }}</p>
+                <p><strong>No. Exterior:</strong> {{ nna.numero_ext }}</p>
+                <p><strong>No. Interior:</strong> {{ nna.numero_int }}</p>
+            </div>
+            
+            <hr style="margin: 20px 0;">
+            
+            <a href="/nna/editar/{{ nna.id_nna }}" class="btn-accion" style="background: #2c3e50; padding: 10px; color: #fff; text-decoration: none;">EDITAR INFORMACIÓN</a>
+        </div>
+    </main>
+</body>
+</html>
