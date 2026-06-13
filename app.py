@@ -14,9 +14,9 @@ app.secret_key = 'tu_llave_secreta_super_pro'
 def conectar_db():
     return psycopg2.connect(
         host="localhost",
-        database="base_normalizada",
+        database="fundacion_db",
         user="postgres",
-        password="Diana2005"
+        password="1234"
     )
 
 # ----------------------------------------------------------------
@@ -343,10 +343,31 @@ def logout():
     return redirect(url_for('index'))
 
 
-@app.route('/home')
+@app.route('/home') # Asegúrate de que esta sea la ruta que estás visitando
 def home():
-    if 'usuario_id' not in session: return redirect(url_for('index'))
-    return render_template('home.html', nombre=session.get('nombre', 'Usuario'))
+    if 'usuario_id' not in session: 
+        return redirect(url_for('index'))
+    
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    
+    # Hacemos un JOIN para traer nombre_rol directamente de la tabla roles
+    query = """
+        SELECT p.*, r.nombre_rol 
+        FROM personal p 
+        LEFT JOIN roles r ON p.rol_id = r.id 
+        WHERE p.id = %s
+    """
+    cur.execute(query, (session['usuario_id'],))
+    usuario = cur.fetchone()
+    cur.close()
+    conn.close()
+    
+    if not usuario:
+        return "Usuario no encontrado", 404
+        
+    # Aquí es donde fallabas: debes enviar 'p=usuario'
+    return render_template('home.html', p=usuario)
 
 # ----------------------------------------------------------------
 # MÓDULO 2 (NNA) Y MÓDULO 3 (TUTORES)
@@ -474,6 +495,25 @@ def registrar_nna():
                            escolaridades=escolaridades, lenguas=lenguas,
                            condiciones=condiciones, entidades=entidades)
 
+@app.route('/nna/detalle/<int:id_nna>')
+def detalle_nna(id_nna):
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    
+    # Usamos LEFT JOIN para traer la info de nna y su direccion en una sola consulta
+    query = """
+        SELECT nna.*, direccion.calle, direccion.numero_ext, direccion.numero_int 
+        FROM nna 
+        LEFT JOIN direccion ON nna.id_direccion = direccion.id_direccion 
+        WHERE nna.id_nna = %s
+    """
+    cur.execute(query, (id_nna,))
+    nna = cur.fetchone() # Esto trae un solo registro
+    
+    cur.close()
+    conn.close()
+    
+    return render_template('detalle_nna.html', nna=nna)
 
 @app.route('/tutor/registrar', methods=['GET', 'POST'])
 def registrar_tutor():
@@ -897,6 +937,7 @@ def pantalla_agregar_persona():
 def pantalla_asignar_discapacidad():
     if 'usuario_id' not in session: return redirect(url_for('index'))
     return render_template('asignar_discapacidad.html')
+
 
 
 # Arranque del servidor Flask al final de todas las definiciones
