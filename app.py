@@ -14,9 +14,9 @@ app.secret_key = 'tu_llave_secreta_super_pro'
 def conectar_db():
     return psycopg2.connect(
         host="localhost",
-        database="fundacion_db",
+        database="base_normalizada",
         user="postgres",
-        password="1234"
+        password="Diana2005"
     )
 
 # ----------------------------------------------------------------
