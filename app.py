@@ -14,9 +14,9 @@ app.secret_key = 'tu_llave_secreta_super_pro'
 def conectar_db():
     return psycopg2.connect(
         host="localhost",
-        database="base_normalizada",
+        database="fundacion_db",
         user="postgres",
-        password="Diana2005"
+        password="1234"
     )
 
 # ----------------------------------------------------------------
@@ -500,15 +500,42 @@ def detalle_nna(id_nna):
     conn = conectar_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
-    # Usamos LEFT JOIN para traer la info de nna y su direccion en una sola consulta
+    # Consulta unificada: Datos del NNA + Direcciones + Catálogos + Tutor asignado
     query = """
-        SELECT nna.*, direccion.calle, direccion.numero_ext, direccion.numero_int 
-        FROM nna 
-        LEFT JOIN direccion ON nna.id_direccion = direccion.id_direccion 
+        SELECT nna.*, 
+               s.nom_sexo AS sexo,
+               e.nom_esc AS escolaridad_nombre,
+               d.calle, d.numero_ext, d.numero_int, d.referencias,
+               a.nom_mun AS municipio, a.nom_col AS colonia, a.cp_asen AS cp,
+               ent.nom_ent AS estado,
+               ent_nac.nom_ent AS lugar_nacimiento_nombre,
+               l.variante_len AS lengua_nombre,
+               c.nombre AS condicion_nombre,
+               t.nombre AS tutor_nombre,
+               t.apellido_p AS tutor_apellido_p,
+               t.apellido_m AS tutor_apellido_m,
+               t.ocupacion AS tutor_ocupacion,
+               t.curp AS tutor_curp,
+               p.nom_paren AS tutor_parentesco,
+               nt.tutor_legal AS es_tutor_legal
+        FROM nna nna
+        LEFT JOIN sexo s ON nna.id_sexo = s.id_sexo
+        LEFT JOIN escolaridad e ON nna.id_esc = e.id_esc
+        LEFT JOIN direccion d ON nna.id_direccion = d.id_direccion
+        LEFT JOIN asentamiento a ON d.id_asen = a.id_asen
+        LEFT JOIN entidad_federativa ent ON a.id_ent = ent.id_ent
+        LEFT JOIN entidad_federativa ent_nac ON nna.lugar_nacimiento = ent_nac.id_ent
+        LEFT JOIN lenguaje_nna ln ON nna.id_nna = ln.id_nna
+        LEFT JOIN lengua l ON ln.id_len = l.id_len
+        LEFT JOIN nna_condicion nc ON nna.id_nna = nc.id_nna
+        LEFT JOIN condicion c ON nc.id_condicion = c.id_condicion
+        LEFT JOIN nna_tutor nt ON nna.id_nna = nt.id_nna
+        LEFT JOIN tutor t ON nt.id_tutor = t.id_tutor
+        LEFT JOIN parentesco p ON nt.id_paren = p.id_paren
         WHERE nna.id_nna = %s
     """
     cur.execute(query, (id_nna,))
-    nna = cur.fetchone() # Esto trae un solo registro
+    nna = cur.fetchone()
     
     cur.close()
     conn.close()
@@ -1376,7 +1403,142 @@ def equipo_dar_baja(id_equipo, id_personal, fecha_alta):
         conn.close()
     return redirect(url_for('detalle_equipo', id_equipo=id_equipo))
 
+@app.route('/nna/editar/<int:id_nna>', methods=['GET', 'POST'])
+def editar_nna(id_nna):
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    
+    if request.method == 'POST':
+        # --- 1. RECUPERAR VALORES DEL FORMULARIO ---
+        # Datos del NNA
+        folio_nna = request.form.get('folio_nna')
+        nombre = request.form.get('nombre')
+        apellido_p = request.form.get('apellido_p') or None
+        apellido_m = request.form.get('apellido_m') or None
+        fecha_nacimiento = request.form.get('fecha_nacimiento') or None
+        curp = request.form.get('curp') or None
+        id_sexo = request.form.get('id_sexo') or None
+        id_esc = request.form.get('id_esc') or None
+        lugar_nacimiento = request.form.get('lugar_nacimiento') or None
+        
+        # Datos Domiciliarios
+        calle = request.form.get('calle')
+        numero_ext = request.form.get('numero_ext')
+        numero_int = request.form.get('numero_int') or None
+        referencias = request.form.get('referencias') or None
+        nom_mun = request.form.get('nom_mun')
+        nom_col = request.form.get('nom_col') or None
+        cp_asen = request.form.get('cp_asen') or None
+        id_ent_domicilio = request.form.get('id_ent_domicilio') or None
+        
+        # Tablas Relacionales (Intermedias)
+        id_len = request.form.get('id_len')
+        id_condicion = request.form.get('id_condicion')
 
+        try:
+            # --- 2. GESTIÓN DE DIRECCIÓN Y ASENTAMIENTO ---
+            cur.execute("SELECT id_direccion FROM nna WHERE id_nna = %s", (id_nna,))
+            res_nna = cur.fetchone()
+            id_direccion = res_nna['id_direccion'] if res_nna else None
+
+            if id_direccion:
+                # Si ya tiene dirección asignada, obtenemos su id_asen
+                cur.execute("SELECT id_asen FROM direccion WHERE id_direccion = %s", (id_direccion,))
+                id_asen = cur.fetchone()['id_asen']
+                
+                # Actualizamos asentamiento
+                cur.execute("""
+                    UPDATE asentamiento 
+                    SET nom_mun = %s, nom_col = %s, cp_asen = %s, id_ent = %s 
+                    WHERE id_asen = %s
+                """, (nom_mun, nom_col, cp_asen, id_ent_domicilio, id_asen))
+                
+                # Actualizamos direccion
+                cur.execute("""
+                    UPDATE direccion 
+                    SET calle = %s, numero_ext = %s, numero_int = %s, referencias = %s 
+                    WHERE id_direccion = %s
+                """, (calle, numero_ext, numero_int, referencias, id_direccion))
+            else:
+                # Si no tenía dirección previa en el sistema, creamos los registros desde cero
+                cur.execute("""
+                    INSERT INTO asentamiento (nom_mun, nom_col, cp_asen, id_ent) 
+                    VALUES (%s, %s, %s, %s) RETURNING id_asen
+                """, (nom_mun, nom_col, cp_asen, id_ent_domicilio))
+                id_asen = cur.fetchone()['id_asen']
+                
+                cur.execute("""
+                    INSERT INTO direccion (calle, numero_ext, numero_int, referencias, id_asen) 
+                    VALUES (%s, %s, %s, %s, %s) RETURNING id_direccion
+                """, (calle, numero_ext, numero_int, referencias, id_asen))
+                id_direccion = cur.fetchone()['id_direccion']
+
+            # --- 3. ACTUALIZAR TABLA PRINCIPAL (NNA) ---
+            cur.execute("""
+                UPDATE nna 
+                SET folio_nna = %s, nombre = %s, apellido_p = %s, apellido_m = %s, 
+                    fecha_nacimiento = %s, curp = %s, id_sexo = %s, id_esc = %s, 
+                    id_direccion = %s, lugar_nacimiento = %s 
+                WHERE id_nna = %s
+            """, (folio_nna, nombre, apellido_p, apellido_m, fecha_nacimiento, curp, 
+                  id_sexo, id_esc, id_direccion, lugar_nacimiento, id_nna))
+
+            # --- 4. ACTUALIZAR TABLA INTERMEDIA: LENGUAJE_NNA ---
+            cur.execute("DELETE FROM lenguaje_nna WHERE id_nna = %s", (id_nna,))
+            if id_len:
+                cur.execute("INSERT INTO lenguaje_nna (id_nna, id_len) VALUES (%s, %s)", (id_nna, id_len))
+
+            # --- 5. ACTUALIZAR TABLA INTERMEDIA: NNA_CONDICION ---
+            cur.execute("DELETE FROM nna_condicion WHERE id_nna = %s", (id_nna,))
+            if id_condicion:
+                cur.execute("INSERT INTO nna_condicion (id_nna, id_condicion) VALUES (%s, %s)", (id_nna, id_condicion))
+
+            # Si todo salió bien, guardamos cambios permanentemente
+            conn.commit()
+            return redirect(url_for('detalle_nna', id_nna=id_nna))
+
+        except Exception as e:
+            conn.rollback()
+            print(f"Error crítico detectado en la actualización: {e}")
+            # Puedes retornar un mensaje flash o renderizar un error aquí si lo prefieres
+
+    # --- CONTROLADOR EN MODO GET (Carga de datos actuales) ---
+    cur.execute("""
+        SELECT nna.*, 
+               d.calle, d.numero_ext, d.numero_int, d.referencias,
+               a.nom_mun, a.nom_col, a.cp_asen, a.id_ent AS id_ent_domicilio,
+               ln.id_len, nc.id_condicion
+        FROM nna nna
+        LEFT JOIN direccion d ON nna.id_direccion = d.id_direccion
+        LEFT JOIN asentamiento a ON d.id_asen = a.id_asen
+        LEFT JOIN lenguaje_nna ln ON nna.id_nna = ln.id_nna
+        LEFT JOIN nna_condicion nc ON nna.id_nna = nc.id_nna
+        WHERE nna.id_nna = %s
+    """, (id_nna,))
+    nna = cur.fetchone()
+
+    # Cargar los catálogos requeridos para renderizar los elementos <select>
+    cur.execute("SELECT id_sexo, nom_sexo FROM sexo ORDER BY nom_sexo")
+    cat_sexo = cur.fetchall()
+
+    cur.execute("SELECT id_esc, nom_esc FROM escolaridad")
+    cat_escolaridad = cur.fetchall()
+
+    cur.execute("SELECT id_ent, nom_ent FROM entidad_federativa ORDER BY nom_ent")
+    cat_estados = cur.fetchall()
+
+    cur.execute("SELECT id_len, variante_len FROM lengua ORDER BY variante_len")
+    cat_lenguas = cur.fetchall()
+
+    cur.execute("SELECT id_condicion, nombre FROM condicion ORDER BY nombre")
+    cat_condiciones = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template('editar_nna.html', nna=nna, cat_sexo=cat_sexo, 
+                           cat_escolaridad=cat_escolaridad, cat_estados=cat_estados, 
+                           cat_lenguas=cat_lenguas, cat_condiciones=cat_condiciones)
 
 # Arranque del servidor Flask al final de todas las definiciones
 if __name__ == '__main__':
