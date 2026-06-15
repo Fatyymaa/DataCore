@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>DATACORE | REGISTRAR CONSULTA</title>
+    <style>
+        body { font-family: monospace; background: #f4f4f4; display: flex; justify-content: center; align-items: flex-start; padding: 40px 0; margin: 0; }
+        .card { background: white; padding: 30px; border: 2px solid #000; box-shadow: 10px 10px 0px #000; width: 480px; }
+        label { font-size: 12px; font-weight: bold; display: block; margin-top: 12px; }
+        input, select, textarea { width: 100%; padding: 10px; margin: 6px 0; border: 1px solid #000; box-sizing: border-box; font-family: monospace; }
+        textarea { resize: vertical; min-height: 80px; }
+        button { width: 100%; padding: 12px; background: #000; color: #fff; cursor: pointer; border: none; font-weight: bold; font-family: monospace; margin-top: 18px; }
+        button:hover { background: #333; }
+        .seccion-titulo { font-weight: bold; text-transform: uppercase; margin-top: 15px; display: block; background: #000; color: #fff; padding: 5px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>REGISTRAR CONSULTA</h2>
+        <p style="margin-top:-10px; font-size:11px; color:#666;">Módulo 6: Atención por consulta (médica, psicológica, jurídica, trabajo social)</p>
+
+        <form action="/consultas/registrar" method="POST">
+
+            <span class="seccion-titulo">Datos de la Consulta</span>
+
+            <label>NNA atendido:</label>
+            <select name="id_nna" required>
+                <option value="" disabled selected>-- Selecciona un NNA --</option>
+                {% for n in nna_lista %}
+                    <option value="{{ n.id_nna }}">{{ n.folio_nna }} | {{ n.nombre }} {{ n.apellido_p or '' }} {{ n.apellido_m or '' }}</option>
+                {% endfor %}
+            </select>
+
+            <label>Tipo de consulta:</label>
+            <select name="id_tipo_consul" required>
+                <option value="" disabled selected>-- Selecciona el tipo --</option>
+                {% for t in tipos %}
+                    <option value="{{ t.id_tipo_consul }}">{{ t.nom_tipo_consul }}</option>
+                {% endfor %}
+            </select>
+
+            <label>Profesional que atiende:</label>
+            <select name="id_personal" required>
+                <option value="" disabled selected>-- Selecciona al profesional --</option>
+                {% for p in profesionales %}
+                    <option value="{{ p.id }}">{{ p.nombre }} {{ p.apellido_p }} ({{ p.nombre_rol }})</option>
+                {% endfor %}
+            </select>
+
+            <label>Motivo:</label>
+            <input type="text" name="motivo" placeholder="Motivo de la consulta" maxlength="200">
+
+            <label>Notas / observaciones:</label>
+            <textarea name="notas" placeholder="Detalles de la consulta..."></textarea>
+
+            <button type="submit">REGISTRAR CONSULTA</button>
+        </form>
+        <p style="text-align:center;"><a href="/consultas" style="color:#000;">Ver listado de consultas</a> | <a href="/dashboard" style="color:#000;">Dashboard</a></p>
+    </div>
+</body>
+</html>

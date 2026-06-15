@@ -940,6 +940,182 @@ def pantalla_asignar_discapacidad():
 
 
 
+# ----------------------------------------------------------------
+# CONSULTAS: se ligan directamente a un NNA (no requieren caso).
+#            Tipos: Médica, Psicológica, Jurídica, Trabajo Social.
+# APOYOS:    se ligan a un caso+NNA (por la FK compuesta a caso_nna),
+#            por eso primero eliges el caso y luego el NNA de ese caso.
+# ================================================================
+
+# ----------------------------------------------------------------
+# MÓDULO 6: CONSULTAS
+# ----------------------------------------------------------------
+
+@app.route('/consultas')
+def listar_consultas():
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("""
+        SELECT c.*,
+               tc.nom_tipo_consul AS tipo,
+               n.folio_nna, n.nombre AS nna_nombre, n.apellido_p AS nna_apellido,
+               p.nombre AS prof_nombre, p.apellido_p AS prof_apellido,
+               r.nombre_rol AS prof_rol
+        FROM consulta c
+        JOIN tipo_consulta tc ON tc.id_tipo_consul = c.id_tipo_consul
+        JOIN nna n            ON n.id_nna = c.id_nna
+        JOIN personal p       ON p.id = c.id_personal
+        LEFT JOIN roles r     ON r.id = p.rol_id
+        ORDER BY c.fecha_consul DESC
+    """)
+    consultas = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('consultas_listado.html',
+                           consultas=consultas, nombre=session['nombre'])
+
+
+@app.route('/consultas/registrar', methods=['GET', 'POST'])
+def registrar_consulta():
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    if request.method == 'POST':
+        d = request.form
+        try:
+            cur.execute("""
+                INSERT INTO consulta (id_nna, id_personal, id_tipo_consul, motivo, notas)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (
+                d['id_nna'], d['id_personal'], d['id_tipo_consul'],
+                d.get('motivo') or None, d.get('notas') or None
+            ))
+            conn.commit()
+            flash("Consulta registrada con éxito", "success")
+            return redirect(url_for('listar_consultas'))
+        except Exception as e:
+            conn.rollback()
+            print(f"Error al registrar consulta: {e}")
+            flash(f"Error al registrar consulta: {e}", "error")
+            return redirect('/consultas/registrar')
+        finally:
+            cur.close()
+            conn.close()
+
+    # GET: catálogos para el formulario
+    cur.execute("""
+        SELECT id_nna, folio_nna, nombre, apellido_p, apellido_m
+        FROM nna ORDER BY nombre, apellido_p
+    """)
+    nna_lista = cur.fetchall()
+    cur.execute("SELECT id_tipo_consul, nom_tipo_consul FROM tipo_consulta ORDER BY id_tipo_consul")
+    tipos = cur.fetchall()
+    # Solo profesionales que dan consultas (médico, psicólogo, abogado, T. social)
+    cur.execute("""
+        SELECT p.id, p.nombre, p.apellido_p, r.nombre_rol
+        FROM personal p JOIN roles r ON r.id = p.rol_id
+        WHERE p.esta_activo = TRUE
+          AND r.nombre_rol IN ('Doctor','Psicologo','Abogado','Trabajador Social')
+        ORDER BY p.nombre
+    """)
+    profesionales = cur.fetchall()
+
+    cur.close()
+    conn.close()
+    return render_template('consulta_registro.html',
+                           nna_lista=nna_lista, tipos=tipos,
+                           profesionales=profesionales)
+
+
+# ----------------------------------------------------------------
+# MÓDULO 7: APOYOS  (ligados a caso + NNA)
+# ----------------------------------------------------------------
+
+@app.route('/apoyos')
+def listar_apoyos():
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("""
+        SELECT a.*,
+               ta.nom_tipo_apo AS tipo,
+               c.folio_caso,
+               n.folio_nna, n.nombre AS nna_nombre, n.apellido_p AS nna_apellido,
+               p.nombre AS aut_nombre, p.apellido_p AS aut_apellido,
+               -- Cuánto de este apoyo ya está cubierto por donaciones
+               COALESCE((SELECT SUM(ad.monto_aplicado)
+                         FROM apoyo_donacion ad WHERE ad.id_apo = a.id_apo), 0) AS cubierto
+        FROM apoyo a
+        JOIN tipo_apoyo ta ON ta.id_tipo_apo = a.id_tipo_apo
+        JOIN caso c        ON c.id_caso = a.id_caso
+        JOIN nna n         ON n.id_nna = a.id_nna
+        JOIN personal p    ON p.id = a.id_autoriza
+        ORDER BY a.fecha_apo DESC
+    """)
+    apoyos = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('apoyos_listado.html',
+                           apoyos=apoyos, nombre=session['nombre'])
+
+
+@app.route('/apoyos/registrar', methods=['GET', 'POST'])
+def registrar_apoyo():
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    if request.method == 'POST':
+        d = request.form
+        try:
+            cur.execute("""
+                INSERT INTO apoyo (id_caso, id_nna, id_tipo_apo, descripcion,
+                                   monto, id_autoriza)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                d['id_caso'], d['id_nna'], d['id_tipo_apo'],
+                d.get('descripcion') or None,
+                d.get('monto') or None,
+                session['usuario_id']  # quien autoriza es el usuario en sesión
+            ))
+            conn.commit()
+            flash("Apoyo registrado con éxito", "success")
+            return redirect(url_for('listar_apoyos'))
+        except Exception as e:
+            conn.rollback()
+            print(f"Error al registrar apoyo: {e}")
+            flash(f"Error al registrar apoyo: {e}", "error")
+            return redirect('/apoyos/registrar')
+        finally:
+            cur.close()
+            conn.close()
+
+    # GET: para apoyos necesitamos las PAREJAS caso+NNA válidas (caso_nna),
+    # porque la FK del apoyo apunta a esa combinación, no a cualquier NNA.
+    cur.execute("""
+        SELECT cn.id_caso, cn.id_nna,
+               c.folio_caso, c.nom_caso,
+               n.folio_nna, n.nombre, n.apellido_p
+        FROM caso_nna cn
+        JOIN caso c ON c.id_caso = cn.id_caso
+        JOIN nna n  ON n.id_nna = cn.id_nna
+        ORDER BY c.id_caso DESC, n.nombre
+    """)
+    pares_caso_nna = cur.fetchall()
+    cur.execute("SELECT id_tipo_apo, nom_tipo_apo FROM tipo_apoyo ORDER BY id_tipo_apo")
+    tipos = cur.fetchall()
+
+    cur.close()
+    conn.close()
+    return render_template('apoyo_registro.html',
+                           pares_caso_nna=pares_caso_nna, tipos=tipos)
+
 # Arranque del servidor Flask al final de todas las definiciones
 if __name__ == '__main__':
     app.run(debug=True)

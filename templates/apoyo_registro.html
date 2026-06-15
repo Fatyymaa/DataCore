@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>DATACORE | REGISTRAR APOYO</title>
+    <style>
+        body { font-family: monospace; background: #f4f4f4; display: flex; justify-content: center; align-items: flex-start; padding: 40px 0; margin: 0; }
+        .card { background: white; padding: 30px; border: 2px solid #000; box-shadow: 10px 10px 0px #000; width: 480px; }
+        label { font-size: 12px; font-weight: bold; display: block; margin-top: 12px; }
+        input, select, textarea { width: 100%; padding: 10px; margin: 6px 0; border: 1px solid #000; box-sizing: border-box; font-family: monospace; }
+        textarea { resize: vertical; min-height: 70px; }
+        button { width: 100%; padding: 12px; background: #000; color: #fff; cursor: pointer; border: none; font-weight: bold; font-family: monospace; margin-top: 18px; }
+        button:hover { background: #333; }
+        .seccion-titulo { font-weight: bold; text-transform: uppercase; margin-top: 15px; display: block; background: #000; color: #fff; padding: 5px; text-align: center; }
+        .ayuda { font-size: 11px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>REGISTRAR APOYO</h2>
+        <p style="margin-top:-10px; font-size:11px; color:#666;">Módulo 7: Apoyos otorgados (económico, médico, educativo, etc.)</p>
+
+        <form action="/apoyos/registrar" method="POST">
+
+            <span class="seccion-titulo">Caso y NNA Beneficiario</span>
+
+            <label>Caso + NNA:</label>
+            <select name="par" id="par" required onchange="separarValores()">
+                <option value="" disabled selected>-- Selecciona caso y NNA --</option>
+                {% for pr in pares_caso_nna %}
+                    <option value="{{ pr.id_caso }}|{{ pr.id_nna }}">
+                        {{ pr.folio_caso }} ({{ pr.nom_caso }}) → {{ pr.nombre }} {{ pr.apellido_p or '' }}
+                    </option>
+                {% endfor %}
+            </select>
+            <p class="ayuda">El apoyo se otorga dentro de un caso a un NNA específico de ese caso.</p>
+
+            <!-- Campos ocultos que se llenan al elegir el par caso+NNA -->
+            <input type="hidden" name="id_caso" id="id_caso">
+            <input type="hidden" name="id_nna" id="id_nna">
+
+            <span class="seccion-titulo">Detalle del Apoyo</span>
+
+            <label>Tipo de apoyo:</label>
+            <select name="id_tipo_apo" required>
+                <option value="" disabled selected>-- Selecciona el tipo --</option>
+                {% for t in tipos %}
+                    <option value="{{ t.id_tipo_apo }}">{{ t.nom_tipo_apo }}</option>
+                {% endfor %}
+            </select>
+
+            <label>Descripción:</label>
+            <textarea name="descripcion" placeholder="Detalle del apoyo otorgado..." maxlength="200"></textarea>
+
+            <label>Monto (si aplica):</label>
+            <input type="number" name="monto" step="0.01" min="0" placeholder="Ej. 1500.00">
+
+            <button type="submit">REGISTRAR APOYO</button>
+        </form>
+        <p style="text-align:center;"><a href="/apoyos" style="color:#000;">Ver listado de apoyos</a> | <a href="/dashboard" style="color:#000;">Dashboard</a></p>
+    </div>
+
+    <script>
+        // El select combina caso+NNA en un solo valor "idcaso|idnna".
+        // Aquí lo separamos en los dos campos ocultos que espera el backend.
+        function separarValores() {
+            const v = document.getElementById('par').value;
+            const partes = v.split('|');
+            document.getElementById('id_caso').value = partes[0];
+            document.getElementById('id_nna').value = partes[1];
+        }
+    </script>
+</body>
+</html>
