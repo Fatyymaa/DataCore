@@ -17,6 +17,12 @@
         .cob-completo { color: #2e7d32; font-weight: bold; }
         .cob-parcial { color: #b8860b; font-weight: bold; }
         .cob-nada { color: #888; }
+        .filtros { background: #f4f4f4; padding: 15px; border: 2px solid #000; box-shadow: 4px 4px 0px #000; margin-bottom: 20px; }
+        .filtros-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+        .filtros label { font-size: 11px; font-weight: bold; display: block; margin-bottom: 3px; }
+        .filtros input, .filtros select { padding: 5px; width: 100%; border: 1px solid #000; box-sizing: border-box; font-family: monospace; }
+        .btn-limpiar { background: #777; color: #fff; border: none; padding: 6px 12px; cursor: pointer; font-family: monospace; font-weight: bold; font-size: 11px; margin-top: 8px; }
+        .contador { font-size: 11px; color: #666; margin-bottom: 8px; }
         .flash-error { background: #ffcccc; border: 2px solid #000; padding: 10px; margin-bottom: 15px; font-weight: bold; text-align: center; }
         .flash-success { background: #ccffcc; border: 2px solid #000; padding: 10px; margin-bottom: 15px; font-weight: bold; text-align: center; }
     </style>
@@ -40,6 +46,46 @@
       {% endif %}
     {% endwith %}
 
+    <!-- FILTROS -->
+    <div class="filtros">
+        <strong style="display:block; margin-bottom:10px; font-size:12px; text-transform:uppercase;">Filtros</strong>
+        <div class="filtros-grid">
+            <div>
+                <label>Caso / NNA / Descripción:</label>
+                <input type="text" id="f-texto" onkeyup="filtrarApoyos()" placeholder="Buscar...">
+            </div>
+            <div>
+                <label>Tipo de apoyo:</label>
+                <select id="f-tipo" onchange="filtrarApoyos()">
+                    <option value="">TODOS</option>
+                    {% for t in apoyos | map(attribute='tipo') | unique | sort %}
+                        <option value="{{ t }}">{{ t }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Cobertura:</label>
+                <select id="f-cobertura" onchange="filtrarApoyos()">
+                    <option value="">TODAS</option>
+                    <option value="COMPLETO">Cubierto 100%</option>
+                    <option value="PARCIAL">Parcial</option>
+                    <option value="NADA">Sin cubrir</option>
+                </select>
+            </div>
+            <div>
+                <label>Desde (fecha):</label>
+                <input type="date" id="f-desde" onchange="filtrarApoyos()">
+            </div>
+            <div>
+                <label>Hasta (fecha):</label>
+                <input type="date" id="f-hasta" onchange="filtrarApoyos()">
+            </div>
+        </div>
+        <button class="btn-limpiar" onclick="limpiarFiltros()">LIMPIAR FILTROS</button>
+    </div>
+
+    <div class="contador" id="contador"></div>
+
     <table>
         <thead>
             <tr>
@@ -53,9 +99,15 @@
                 <th>AUTORIZÓ</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="tabla-apoyos">
             {% for a in apoyos %}
-            <tr>
+            {% set estado_cob = 'NADA' %}
+            {% if a.monto and a.cubierto >= a.monto %}{% set estado_cob = 'COMPLETO' %}
+            {% elif a.cubierto > 0 %}{% set estado_cob = 'PARCIAL' %}{% endif %}
+            <tr data-fecha="{{ a.fecha_apo }}"
+                data-tipo="{{ a.tipo }}"
+                data-cobertura="{{ estado_cob }}"
+                data-texto="{{ a.folio_caso }} {{ a.folio_nna }} {{ a.nna_nombre }} {{ a.nna_apellido or '' }} {{ a.descripcion or '' }}">
                 <td>{{ a.fecha_apo }}</td>
                 <td>{{ a.folio_caso }}</td>
                 <td>{{ a.folio_nna }}<br><small>{{ a.nna_nombre }} {{ a.nna_apellido or '' }}</small></td>
@@ -82,5 +134,51 @@
             {% endfor %}
         </tbody>
     </table>
+
+    <script>
+        function filtrarApoyos() {
+            const texto = document.getElementById('f-texto').value.toUpperCase();
+            const tipo  = document.getElementById('f-tipo').value.toUpperCase();
+            const cob   = document.getElementById('f-cobertura').value.toUpperCase();
+            const desde = document.getElementById('f-desde').value;
+            const hasta = document.getElementById('f-hasta').value;
+
+            const filas = document.querySelectorAll('#tabla-apoyos tr');
+            let visibles = 0;
+
+            filas.forEach(fila => {
+                if (!fila.hasAttribute('data-fecha')) return;
+
+                const dTexto = (fila.getAttribute('data-texto') || '').toUpperCase();
+                const dTipo  = (fila.getAttribute('data-tipo') || '').toUpperCase();
+                const dCob   = (fila.getAttribute('data-cobertura') || '').toUpperCase();
+                const dFecha = fila.getAttribute('data-fecha');
+
+                let coincide = dTexto.includes(texto)
+                    && (tipo === '' || dTipo === tipo)
+                    && (cob === '' || dCob === cob);
+
+                if (desde && dFecha && dFecha < desde) coincide = false;
+                if (hasta && dFecha && dFecha > hasta) coincide = false;
+
+                fila.style.display = coincide ? '' : 'none';
+                if (coincide) visibles++;
+            });
+
+            document.getElementById('contador').textContent =
+                'Mostrando ' + visibles + ' apoyo(s)';
+        }
+
+        function limpiarFiltros() {
+            document.getElementById('f-texto').value = '';
+            document.getElementById('f-tipo').value = '';
+            document.getElementById('f-cobertura').value = '';
+            document.getElementById('f-desde').value = '';
+            document.getElementById('f-hasta').value = '';
+            filtrarApoyos();
+        }
+
+        filtrarApoyos();
+    </script>
 </body>
 </html>

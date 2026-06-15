@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>DATACORE | EQUIPO {{ equipo.nom_equipo }}</title>
+    <style>
+        body { font-family: monospace; background: #f4f4f4; margin: 0; padding: 20px 40px; }
+        header { display: flex; justify-content: space-between; border-bottom: 3px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+        h2 { background: #000; color: #fff; display: inline-block; padding: 8px 15px; margin: 0; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+        .panel { background: #fff; border: 2px solid #000; box-shadow: 6px 6px 0 #000; padding: 15px; }
+        .panel h3 { background: #000; color: #fff; padding: 5px 10px; font-size: 12px; text-transform: uppercase; margin: -15px -15px 12px -15px; }
+        .panel.full { grid-column: span 2; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { border-bottom: 2px solid #000; text-align: left; padding: 6px 4px; font-size: 11px; }
+        td { border-bottom: 1px solid #ccc; padding: 6px 4px; vertical-align: top; }
+        select { width: 100%; padding: 8px; margin: 6px 0; border: 1px solid #000; box-sizing: border-box; font-family: monospace; font-size: 12px; }
+        button { padding: 8px 12px; background: #000; color: #fff; border: none; cursor: pointer; font-family: monospace; font-weight: bold; font-size: 11px; }
+        button:hover { background: #333; }
+        .btn-baja { background: #b22; color: #fff; padding: 3px 9px; text-decoration: none; font-size: 10px; }
+        .btn-mini { background: #222; color: #fff; padding: 3px 9px; text-decoration: none; font-size: 10px; }
+        .tag { padding: 3px 8px; font-size: 11px; font-weight: bold; border: 1px solid #000; }
+        .tag-rol { background: #e7f0ff; }
+        .tag-activo { background: #d4edda; }
+        .tag-baja { background: #f1f1f1; color: #777; }
+        .info { background: #fff; border: 2px solid #000; padding: 12px 15px; font-size: 13px; display: flex; gap: 25px; }
+        form.inline { display: flex; gap: 8px; align-items: flex-end; }
+        .nota { font-size: 11px; color: #666; }
+        .flash-error { background: #ffcccc; border: 2px solid #000; padding: 10px; margin: 15px 0; font-weight: bold; text-align: center; }
+        .flash-success { background: #ccffcc; border: 2px solid #000; padding: 10px; margin: 15px 0; font-weight: bold; text-align: center; }
+    </style>
+</head>
+<body>
+    <header>
+        <div><strong>CORE-NNA SYSTEM</strong> | GESTIÓN DE EQUIPO</div>
+        <a href="/equipos" style="color:#000;">[VOLVER A EQUIPOS]</a>
+    </header>
+
+    <h2>{{ equipo.nom_equipo }}</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="{{ 'flash-error' if category == 'error' else 'flash-success' }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="info" style="margin-top:15px;">
+        <div>EQUIPO #{{ equipo.id_equipo }}</div>
+        <div>CREADO: <strong>{{ equipo.fecha_crea }}</strong></div>
+        <div>MIEMBROS ACTIVOS: <strong>{{ miembros_activos | length }}</strong></div>
+    </div>
+
+    <div class="grid">
+
+        <!-- ==================== MIEMBROS ACTIVOS ==================== -->
+        <div class="panel">
+            <h3>Miembros activos</h3>
+            <table>
+                <thead><tr><th>NOMBRE</th><th>ROL</th><th>DESDE</th><th></th></tr></thead>
+                <tbody>
+                    {% for m in miembros_activos %}
+                    <tr>
+                        <td>{{ m.nombre }} {{ m.apellido_p }} {{ m.apellido_m or '' }}</td>
+                        <td><span class="tag tag-rol">{{ m.nombre_rol or '—' }}</span></td>
+                        <td>{{ m.fecha_alta }}</td>
+                        <td>
+                            <!-- Damos de baja pasando la fecha_alta porque es
+                                 parte de la clave primaria de equipo_miembro -->
+                            <a class="btn-baja"
+                               href="/equipo/{{ equipo.id_equipo }}/dar_baja/{{ m.id_personal }}/{{ m.fecha_alta }}"
+                               onclick="return confirm('¿Dar de baja a este miembro del equipo? (se conserva el historial)')">
+                               DAR DE BAJA</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" style="text-align:center;">Este equipo no tiene miembros activos.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Alta de nuevo miembro -->
+            <form class="inline" action="/equipo/{{ equipo.id_equipo }}/agregar_miembro" method="POST" style="margin-top:12px;">
+                <select name="id_personal" required>
+                    <option value="" disabled selected>-- Agregar miembro --</option>
+                    {% for p in personal_disponible %}
+                        <option value="{{ p.id }}">{{ p.nombre }} {{ p.apellido_p }} ({{ p.nombre_rol }})</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">AGREGAR</button>
+            </form>
+            <p class="nota">Solo aparece personal activo que no esté ya en este equipo. Un trabajador puede pertenecer a varios equipos.</p>
+        </div>
+
+        <!-- ==================== CASOS DEL EQUIPO ==================== -->
+        <div class="panel">
+            <h3>Casos que atiende</h3>
+            <table>
+                <thead><tr><th>FOLIO</th><th>CASO</th><th>ESTATUS</th><th></th></tr></thead>
+                <tbody>
+                    {% for c in casos %}
+                    <tr>
+                        <td>{{ c.folio_caso }}</td>
+                        <td>{{ c.nom_caso }}</td>
+                        <td>{{ c.estatus }}</td>
+                        <td><a class="btn-mini" href="/caso/{{ c.id_caso }}">VER</a></td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" style="text-align:center;">Este equipo no atiende casos por ahora.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ==================== HISTORIAL DE MIEMBROS ==================== -->
+        <div class="panel full">
+            <h3>Historial de membresías (miembros que salieron)</h3>
+            <p class="nota" style="margin-top:0;">
+                Cuando un miembro se da de baja no se borra: se registra su fecha de salida.
+                Así queda la trazabilidad completa de quién estuvo en el equipo y cuándo.
+            </p>
+            <table>
+                <thead><tr><th>NOMBRE</th><th>ROL</th><th>ALTA</th><th>BAJA</th><th>DURACIÓN</th></tr></thead>
+                <tbody>
+                    {% for h in historial %}
+                    <tr>
+                        <td>{{ h.nombre }} {{ h.apellido_p }}</td>
+                        <td><span class="tag tag-baja">{{ h.nombre_rol or '—' }}</span></td>
+                        <td>{{ h.fecha_alta }}</td>
+                        <td>{{ h.fecha_baja }}</td>
+                        <td>{{ (h.fecha_baja - h.fecha_alta).days }} días</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" style="text-align:center;">Sin bajas registradas. Nadie ha salido de este equipo.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</body>
+</html>

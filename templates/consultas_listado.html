@@ -13,6 +13,12 @@
         .btn { background: #000; color: #fff; padding: 8px 14px; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block; }
         .btn:hover { background: #333; }
         .tag { padding: 3px 8px; font-size: 11px; font-weight: bold; border: 1px solid #000; background: #e7f0ff; }
+        .filtros { background: #f4f4f4; padding: 15px; border: 2px solid #000; box-shadow: 4px 4px 0px #000; margin-bottom: 20px; }
+        .filtros-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+        .filtros label { font-size: 11px; font-weight: bold; display: block; margin-bottom: 3px; }
+        .filtros input, .filtros select { padding: 5px; width: 100%; border: 1px solid #000; box-sizing: border-box; font-family: monospace; }
+        .btn-limpiar { background: #777; color: #fff; border: none; padding: 6px 12px; cursor: pointer; font-family: monospace; font-weight: bold; font-size: 11px; margin-top: 8px; }
+        .contador { font-size: 11px; color: #666; margin-bottom: 8px; }
         .flash-error { background: #ffcccc; border: 2px solid #000; padding: 10px; margin-bottom: 15px; font-weight: bold; text-align: center; }
         .flash-success { background: #ccffcc; border: 2px solid #000; padding: 10px; margin-bottom: 15px; font-weight: bold; text-align: center; }
     </style>
@@ -36,6 +42,37 @@
       {% endif %}
     {% endwith %}
 
+    <!-- FILTROS -->
+    <div class="filtros">
+        <strong style="display:block; margin-bottom:10px; font-size:12px; text-transform:uppercase;">Filtros</strong>
+        <div class="filtros-grid">
+            <div>
+                <label>NNA / Profesional / Motivo:</label>
+                <input type="text" id="f-texto" onkeyup="filtrarConsultas()" placeholder="Buscar...">
+            </div>
+            <div>
+                <label>Tipo de consulta:</label>
+                <select id="f-tipo" onchange="filtrarConsultas()">
+                    <option value="">TODOS</option>
+                    {% for t in consultas | map(attribute='tipo') | unique | sort %}
+                        <option value="{{ t }}">{{ t }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Desde (fecha):</label>
+                <input type="date" id="f-desde" onchange="filtrarConsultas()">
+            </div>
+            <div>
+                <label>Hasta (fecha):</label>
+                <input type="date" id="f-hasta" onchange="filtrarConsultas()">
+            </div>
+        </div>
+        <button class="btn-limpiar" onclick="limpiarFiltros()">LIMPIAR FILTROS</button>
+    </div>
+
+    <div class="contador" id="contador"></div>
+
     <table>
         <thead>
             <tr>
@@ -47,9 +84,11 @@
                 <th>NOTAS</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="tabla-consultas">
             {% for c in consultas %}
-            <tr>
+            <tr data-fecha="{{ c.fecha_consul.strftime('%Y-%m-%d') if c.fecha_consul else '' }}"
+                data-tipo="{{ c.tipo }}"
+                data-texto="{{ c.nna_nombre }} {{ c.nna_apellido or '' }} {{ c.folio_nna }} {{ c.prof_nombre }} {{ c.prof_apellido }} {{ c.motivo or '' }}">
                 <td>{{ c.fecha_consul.strftime('%d/%m/%Y %H:%M') if c.fecha_consul else '—' }}</td>
                 <td>{{ c.folio_nna }}<br><small>{{ c.nna_nombre }} {{ c.nna_apellido or '' }}</small></td>
                 <td><span class="tag">{{ c.tipo }}</span></td>
@@ -62,5 +101,50 @@
             {% endfor %}
         </tbody>
     </table>
+
+    <script>
+        function filtrarConsultas() {
+            const texto = document.getElementById('f-texto').value.toUpperCase();
+            const tipo  = document.getElementById('f-tipo').value.toUpperCase();
+            const desde = document.getElementById('f-desde').value; // formato YYYY-MM-DD
+            const hasta = document.getElementById('f-hasta').value;
+
+            const filas = document.querySelectorAll('#tabla-consultas tr');
+            let visibles = 0;
+
+            filas.forEach(fila => {
+                // Ignorar la fila de "no hay consultas"
+                if (!fila.hasAttribute('data-fecha')) return;
+
+                const dTexto = (fila.getAttribute('data-texto') || '').toUpperCase();
+                const dTipo  = (fila.getAttribute('data-tipo') || '').toUpperCase();
+                const dFecha = fila.getAttribute('data-fecha'); // YYYY-MM-DD
+
+                let coincide = dTexto.includes(texto)
+                    && (tipo === '' || dTipo === tipo);
+
+                // Filtro de rango de fechas (comparación de cadenas YYYY-MM-DD funciona)
+                if (desde && dFecha && dFecha < desde) coincide = false;
+                if (hasta && dFecha && dFecha > hasta) coincide = false;
+
+                fila.style.display = coincide ? '' : 'none';
+                if (coincide) visibles++;
+            });
+
+            document.getElementById('contador').textContent =
+                'Mostrando ' + visibles + ' consulta(s)';
+        }
+
+        function limpiarFiltros() {
+            document.getElementById('f-texto').value = '';
+            document.getElementById('f-tipo').value = '';
+            document.getElementById('f-desde').value = '';
+            document.getElementById('f-hasta').value = '';
+            filtrarConsultas();
+        }
+
+        // Contador inicial
+        filtrarConsultas();
+    </script>
 </body>
 </html>

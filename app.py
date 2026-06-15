@@ -938,7 +938,83 @@ def pantalla_asignar_discapacidad():
     if 'usuario_id' not in session: return redirect(url_for('index'))
     return render_template('asignar_discapacidad.html')
 
+# ================================================================
+# MÓDULO 5: CATÁLOGOS
+# ================================================================
+CATALOGOS = {
+    'sexo':           {'tabla': 'sexo',           'id': 'id_sexo',      'campos': [('nom_sexo', 'Nombre')], 'titulo': 'Sexo'},
+    'nacionalidad':   {'tabla': 'nacionalidad',   'id': 'id_nac',       'campos': [('nom_nac', 'Nacionalidad')], 'titulo': 'Nacionalidades'},
+    'escolaridad':    {'tabla': 'escolaridad',    'id': 'id_esc',       'campos': [('nom_esc', 'Nivel')], 'titulo': 'Escolaridad'},
+    'parentesco':     {'tabla': 'parentesco',     'id': 'id_paren',     'campos': [('nom_paren', 'Parentesco')], 'titulo': 'Parentesco'},
+    'tipo_contacto':  {'tabla': 'tipo_contacto',  'id': 'id_tipo_con',  'campos': [('nom_tipo_con', 'Tipo de contacto')], 'titulo': 'Tipos de contacto'},
+    'derecho':        {'tabla': 'derecho',        'id': 'id_der',       'campos': [('nom_der', 'Derecho')], 'titulo': 'Derechos (LGDNNA)'},
+    'tipo_apoyo':     {'tabla': 'tipo_apoyo',     'id': 'id_tipo_apo',  'campos': [('nom_tipo_apo', 'Tipo de apoyo')], 'titulo': 'Tipos de apoyo'},
+    'tipo_consulta':  {'tabla': 'tipo_consulta',  'id': 'id_tipo_consul', 'campos': [('nom_tipo_consul', 'Tipo de consulta')], 'titulo': 'Tipos de consulta'},
+    'metodo_pago':    {'tabla': 'metodo_pago',    'id': 'id_met_pago',  'campos': [('nom_met_pago', 'Método de pago')], 'titulo': 'Métodos de pago'},
+    'enfermedad':     {'tabla': 'enfermedad',     'id': 'id_enf',       'campos': [('nombre', 'Enfermedad'), ('codigo_cie', 'Código CIE')], 'titulo': 'Enfermedades'},
+    'lengua':         {'tabla': 'lengua',         'id': 'id_len',       'campos': [('variante_len', 'Variante'), ('familia_len', 'Familia'), ('autodenom_len', 'Autodenominación')], 'titulo': 'Lenguas'},
+}
 
+
+@app.route('/catalogos')
+@app.route('/catalogos/<cat>')
+def administrar_catalogos(cat=None):
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+
+    if cat is None or cat not in CATALOGOS:
+        cat = 'derecho'
+
+    conf = CATALOGOS[cat]
+    columnas = conf['id'] + ', ' + ', '.join(c[0] for c in conf['campos'])
+
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute(f"SELECT {columnas} FROM {conf['tabla']} ORDER BY {conf['id']}")
+    filas = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return render_template('catalogos.html',
+                           catalogos=CATALOGOS,
+                           cat_actual=cat,
+                           conf=conf,
+                           filas=filas,
+                           nombre=session.get('nombre', 'Usuario'))
+
+
+@app.route('/catalogos/<cat>/agregar', methods=['POST'])
+def agregar_valor_catalogo(cat):
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+
+    if cat not in CATALOGOS:
+        flash("Catálogo no válido", "error")
+        return redirect(url_for('administrar_catalogos'))
+
+    conf = CATALOGOS[cat]
+    cols = [c[0] for c in conf['campos']]
+    valores = [request.form.get(c) or None for c in cols]
+
+    placeholders = ', '.join(['%s'] * len(cols))
+    columnas_sql = ', '.join(cols)
+
+    conn = conectar_db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            f"INSERT INTO {conf['tabla']} ({columnas_sql}) VALUES ({placeholders})",
+            valores
+        )
+        conn.commit()
+        flash(f"Valor agregado al catálogo: {conf['titulo']}", "success")
+    except Exception as e:
+        conn.rollback()
+        print(f"Error al agregar a catálogo: {e}")
+        flash(f"Error (¿valor duplicado?): {e}", "error")
+    finally:
+        cur.close()
+        conn.close()
+
+    return redirect(url_for('administrar_catalogos', cat=cat))
 
 # ----------------------------------------------------------------
 # CONSULTAS: se ligan directamente a un NNA (no requieren caso).
@@ -1115,6 +1191,192 @@ def registrar_apoyo():
     conn.close()
     return render_template('apoyo_registro.html',
                            pares_caso_nna=pares_caso_nna, tipos=tipos)
+
+# ----------------------------------------------------------------
+# La membresía vive en la tabla puente 'equipo_miembro', con
+# fecha_alta y fecha_baja. NUNCA borramos un miembro: cerramos su
+# fecha_baja. Así se conserva el historial completo y los cambios
+# de un miembro no afectan a los demás.
+# ================================================================
+
+@app.route('/equipos')
+def listar_equipos():
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("""
+        SELECT e.*,
+               -- Miembros activos (los que no tienen fecha_baja)
+               (SELECT COUNT(*) FROM equipo_miembro em
+                 WHERE em.id_equipo = e.id_equipo AND em.fecha_baja IS NULL) AS num_activos,
+               -- Casos que atiende este equipo
+               (SELECT COUNT(*) FROM caso c
+                 WHERE c.id_equipo = e.id_equipo) AS num_casos
+        FROM equipo_multidisciplinario e
+        ORDER BY e.id_equipo ASC
+    """)
+    equipos = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('equipos_listado.html', equipos=equipos, nombre=session['nombre'])
+
+
+@app.route('/equipos/crear', methods=['POST'])
+def crear_equipo():
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+    nombre_equipo = request.form.get('nom_equipo', '').strip()
+
+    if not nombre_equipo:
+        flash("El nombre del equipo no puede estar vacío", "error")
+        return redirect('/equipos')
+
+    conn = conectar_db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "INSERT INTO equipo_multidisciplinario (nom_equipo) VALUES (%s)",
+            (nombre_equipo,)
+        )
+        conn.commit()
+        flash(f"Equipo '{nombre_equipo}' creado con éxito", "success")
+    except Exception as e:
+        conn.rollback()
+        print(f"Error al crear equipo: {e}")
+        flash(f"Error (¿ya existe un equipo con ese nombre?): {e}", "error")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect('/equipos')
+
+
+@app.route('/equipo/<int:id_equipo>')
+def detalle_equipo(id_equipo):
+    """Detalle de UN equipo: sus miembros activos, su historial de
+    bajas, y los casos que atiende."""
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    # Datos del equipo
+    cur.execute("SELECT * FROM equipo_multidisciplinario WHERE id_equipo = %s", (id_equipo,))
+    equipo = cur.fetchone()
+    if not equipo:
+        cur.close(); conn.close()
+        return "Equipo no encontrado", 404
+
+    # Miembros ACTIVOS (fecha_baja IS NULL)
+    cur.execute("""
+        SELECT em.*, p.nombre, p.apellido_p, p.apellido_m, r.nombre_rol
+        FROM equipo_miembro em
+        JOIN personal p ON p.id = em.id_personal
+        LEFT JOIN roles r ON r.id = p.rol_id
+        WHERE em.id_equipo = %s AND em.fecha_baja IS NULL
+        ORDER BY r.nombre_rol, p.nombre
+    """, (id_equipo,))
+    miembros_activos = cur.fetchall()
+
+    # Historial: miembros que YA salieron (fecha_baja NO nula)
+    cur.execute("""
+        SELECT em.*, p.nombre, p.apellido_p, r.nombre_rol
+        FROM equipo_miembro em
+        JOIN personal p ON p.id = em.id_personal
+        LEFT JOIN roles r ON r.id = p.rol_id
+        WHERE em.id_equipo = %s AND em.fecha_baja IS NOT NULL
+        ORDER BY em.fecha_baja DESC
+    """, (id_equipo,))
+    historial = cur.fetchall()
+
+    # Casos que atiende el equipo
+    cur.execute("""
+        SELECT c.id_caso, c.folio_caso, c.nom_caso, ec.nom_est_caso AS estatus
+        FROM caso c
+        JOIN estatus_caso ec ON ec.id_est_caso = c.id_est_caso
+        WHERE c.id_equipo = %s
+        ORDER BY c.id_caso DESC
+    """, (id_equipo,))
+    casos = cur.fetchall()
+
+    # Personal activo que NO está ya en el equipo (para el desplegable de alta).
+    # Excluimos a quienes ya tienen membresía activa en este equipo.
+    cur.execute("""
+        SELECT p.id, p.nombre, p.apellido_p, r.nombre_rol
+        FROM personal p
+        JOIN roles r ON r.id = p.rol_id
+        WHERE p.esta_activo = TRUE
+          AND p.id NOT IN (
+              SELECT id_personal FROM equipo_miembro
+              WHERE id_equipo = %s AND fecha_baja IS NULL
+          )
+        ORDER BY r.nombre_rol, p.nombre
+    """, (id_equipo,))
+    personal_disponible = cur.fetchall()
+
+    cur.close()
+    conn.close()
+    return render_template('equipo_detalle.html',
+                           equipo=equipo,
+                           miembros_activos=miembros_activos,
+                           historial=historial,
+                           casos=casos,
+                           personal_disponible=personal_disponible,
+                           nombre=session['nombre'])
+
+
+@app.route('/equipo/<int:id_equipo>/agregar_miembro', methods=['POST'])
+def equipo_agregar_miembro(id_equipo):
+    """Da de alta a un miembro: inserta una fila nueva con fecha_alta=hoy
+    y fecha_baja=NULL. Un trabajador puede estar en varios equipos."""
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+
+    conn = conectar_db()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO equipo_miembro (id_equipo, id_personal, fecha_alta)
+            VALUES (%s, %s, CURRENT_DATE)
+        """, (id_equipo, request.form['id_personal']))
+        conn.commit()
+        flash("Miembro agregado al equipo", "success")
+    except Exception as e:
+        conn.rollback()
+        print(f"Error al agregar miembro: {e}")
+        flash(f"Error al agregar miembro: {e}", "error")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for('detalle_equipo', id_equipo=id_equipo))
+
+
+@app.route('/equipo/<int:id_equipo>/dar_baja/<int:id_personal>/<fecha_alta>')
+def equipo_dar_baja(id_equipo, id_personal, fecha_alta):
+    """Da de baja a un miembro: NO borra la fila, solo le pone
+    fecha_baja=hoy. Conserva el historial. Necesitamos fecha_alta
+    porque es parte de la clave primaria de equipo_miembro."""
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+
+    conn = conectar_db()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            UPDATE equipo_miembro
+            SET fecha_baja = CURRENT_DATE
+            WHERE id_equipo = %s AND id_personal = %s
+              AND fecha_alta = %s AND fecha_baja IS NULL
+        """, (id_equipo, id_personal, fecha_alta))
+        conn.commit()
+        flash("Miembro dado de baja del equipo (historial conservado)", "success")
+    except Exception as e:
+        conn.rollback()
+        print(f"Error al dar de baja: {e}")
+        flash(f"Error al dar de baja: {e}", "error")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for('detalle_equipo', id_equipo=id_equipo))
+
+
 
 # Arranque del servidor Flask al final de todas las definiciones
 if __name__ == '__main__':
