@@ -343,31 +343,81 @@ def logout():
     return redirect(url_for('index'))
 
 
-@app.route('/home') # Asegúrate de que esta sea la ruta que estás visitando
+@app.route('/home') 
 def home():
     if 'usuario_id' not in session: 
         return redirect(url_for('index'))
     
+    id_personal = session['usuario_id']
     conn = conectar_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
-    # Hacemos un JOIN para traer nombre_rol directamente de la tabla roles
-    query = """
-        SELECT p.*, r.nombre_rol 
-        FROM personal p 
-        LEFT JOIN roles r ON p.rol_id = r.id 
-        WHERE p.id = %s
-    """
-    cur.execute(query, (session['usuario_id'],))
-    usuario = cur.fetchone()
-    cur.close()
-    conn.close()
-    
-    if not usuario:
-        return "Usuario no encontrado", 404
+    try:
+        # 1. Obtener datos del perfil del profesional
+        query_usuario = """
+            SELECT p.*, r.nombre_rol 
+            FROM personal p 
+            LEFT JOIN roles r ON p.rol_id = r.id 
+            WHERE p.id = %s AND p.esta_activo = TRUE
+        """
+        cur.execute(query_usuario, (id_personal,))
+        usuario = cur.fetchone()
         
-    # Aquí es donde fallabas: debes enviar 'p=usuario'
-    return render_template('home.html', p=usuario)
+        if not usuario:
+            return "Usuario no encontrado o inactivo", 404
+            
+        # 2. Consulta de Casos Asignados Activos
+        query_casos = """
+            SELECT 
+                c.id_caso,
+                c.folio_caso,
+                ec.nom_est_caso AS prioridad,
+                CONCAT(n.nombre, ' ', COALESCE(n.apellido_p, ''), ' ', COALESCE(n.apellido_m, '')) AS nombre_nna,
+                COALESCE(TO_CHAR(MAX(s.fecha_seg), 'DD/MM/YYYY'), TO_CHAR(c.fecha_aper, 'DD/MM/YYYY')) AS fecha_ultima_visita
+            FROM asignacion_caso ac
+            JOIN caso c ON ac.id_caso = c.id_caso
+            JOIN estatus_caso ec ON c.id_est_caso = ec.id_est_caso
+            LEFT JOIN caso_nna cn ON c.id_caso = cn.id_caso
+            LEFT JOIN nna n ON cn.id_nna = n.id_nna
+            LEFT JOIN seguimiento s ON c.id_caso = s.id_caso
+            WHERE ac.id_personal = %s AND ac.fecha_fin IS NULL
+            GROUP BY c.id_caso, c.folio_caso, ec.nom_est_caso, n.nombre, n.apellido_p, n.apellido_m, c.fecha_aper
+            ORDER BY c.fecha_aper DESC;
+        """
+        cur.execute(query_casos, (id_personal,))
+        casos_asignados = cur.fetchall()
+
+        # 3. NUEVA CONSULTA: Consultas/Citas agendadas para este profesional
+        query_consultas = """
+            SELECT 
+                c.id_consul,
+                tc.nom_tipo_consul AS tipo,
+                CONCAT(n.nombre, ' ', COALESCE(n.apellido_p, ''), ' ', COALESCE(n.apellido_m, '')) AS nombre_nna,
+                TO_CHAR(c.fecha_consul, 'DD/MM/YYYY HH24:MI') AS fecha_consulta,
+                c.motivo
+            FROM consulta c
+            JOIN tipo_consulta tc ON c.id_tipo_consul = tc.id_tipo_consul
+            JOIN nna n ON c.id_nna = n.id_nna
+            WHERE c.id_personal = %s
+            ORDER BY c.fecha_consul DESC;
+        """
+        cur.execute(query_consultas, (id_personal,))
+        consultas_asignadas = cur.fetchall()
+        
+    except Exception as e:
+        print(f"Error en la carga del Dashboard General: {e}")
+        casos_asignados = []
+        consultas_asignadas = []
+        usuario = None
+    finally:
+        cur.close()
+        conn.close()
+        
+    if not usuario:
+        return "Error interno del servidor", 500
+        
+    # Pasamos 'casos' y 'consultas' directamente a la plantilla
+    return render_template('home.html', p=usuario, casos=casos_asignados, consultas=consultas_asignadas)
 
 # ----------------------------------------------------------------
 # MÓDULO 2 (NNA) Y MÓDULO 3 (TUTORES)

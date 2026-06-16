@@ -3,48 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <title>DATACORE | DASHBOARD PROFESIONAL</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/profesional.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 </head>
 <body>
-<header class="prof-header">
-    <div>
-        <strong>PROFESIONAL:</strong> {{ p.nombre }} {{ p.apellido_p }} 
-        | 
-        <strong>ROL:</strong> {{ p.nombre_rol }}
-    </div>
-    <a href="/logout" style="color: #fff;">SALIR</a>
-</header>
 
-    <div class="dashboard-grid">
-        <aside>
-            <div class="case-card">
-                <h3>Menú Rápido</h3>
-                <ul style="list-style: none; padding: 0;">
-                    <li><a href="#">Casos Pendientes</a></li>
-                    <li><a href="#">Expedientes Cerrados</a></li>
-                    <li><a href="#">Agenda de Visitas</a></li>
-                </ul>
-            </div>
+    <header>
+        <div>
+            <strong style="text-transform: uppercase;">PROFESIONAL:</strong> {{ p.nombre }} {{ p.apellido_p }} 
+            | 
+            <strong style="text-transform: uppercase;">ROL:</strong> {{ p.nombre_rol }}
+        </div>
+        <a href="/logout">SALIR</a>
+    </header>
+
+    <div class="dashboard-container">
+        
+        <aside class="sidebar">
+            <h3>MENÚ RÁPIDO</h3>
+            <a href="#" class="tab-btn active" data-target="sec-casos">Casos Asignados</a>
+            <a href="#" class="tab-btn" data-target="sec-consultas">Consultas Agendadas</a>
+            
+            <h3>OTROS</h3>
+            <a href="#" class="tab-btn" style="opacity: 0.6; cursor: not-allowed;">Expedientes Cerrados</a>
+            <a href="#" class="tab-btn" style="opacity: 0.6; cursor: not-allowed;">Agenda de Visitas</a>
         </aside>
 
-        <main>
-            <h2>Mis Casos Asignados</h2>
+        <main class="main-content">
             
-            {% for caso in casos %}
-            <div class="case-card">
-                <div style="display:flex; justify-content:space-between;">
-                    <h3>Folio Caso: {{ caso.folio_caso }}</h3>
-                    <span class="badge-prioridad">{{ caso.prioridad }}</span>
-                </div>
-                <p><strong>NNA:</strong> {{ caso.nombre_nna }}</p>
-                <p><strong>Última actualización:</strong> {{ caso.fecha_ultima_visita }}</p>
-                <a href="/caso/detalle/{{ caso.id_caso }}" class="btn-accion">IR AL EXPEDIENTE</a>
+            <div class="welcome-box" style="padding: 20px; margin-bottom: 30px;">
+                <h2 style="margin: 0; text-transform: uppercase; font-size: 22px;">Panel de Control General</h2>
+                <p style="margin: 5px 0 0 0; font-size: 12px; color: #555;">Selecciona una opción del menú rápido para alternar tus actividades.</p>
             </div>
-            {% else %}
-            <div class="case-card">No tienes casos asignados actualmente.</div>
-            {% endfor %}
+
+            <section id="sec-casos" class="view-section active">
+                <h3 style="text-transform: uppercase; border-left: 5px solid #000; padding-left: 10px; letter-spacing: 0.5px; margin-bottom: 20px;">
+                    Mis Casos Asignados
+                </h3>
+                
+                <div class="modules-grid">
+                    {% for caso in casos %}
+                    <div class="mod-card" style="cursor: default;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
+                            <h4 style="margin: 0; border: none; padding: 0; font-size: 13px;">
+                                FOLIO: {{ caso.folio_caso }}
+                            </h4>
+                            <span class="badge-prioridad">{{ caso.prioridad }}</span>
+                        </div>
+                        <p style="margin: 6px 0;"><strong>NNA:</strong> {{ caso.nombre_nna }}</p>
+                        <p style="margin: 6px 0; font-size: 11px; color: #333;">
+                            <strong>ÚLTIMA ACT:</strong> {{ caso.fecha_ultima_visita }}
+                        </p>
+                        <div class="card-actions" style="margin-top: 15px;">
+                            <a href="/caso/detalle/{{ caso.id_caso }}" class="btn-action" style="display: block; text-align: center;">
+                                IR AL EXPEDIENTE
+                            </a>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="empty-state">No tienes casos asignados actualmente.</div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section id="sec-consultas" class="view-section">
+                <h3 style="text-transform: uppercase; border-left: 5px solid #000; padding-left: 10px; letter-spacing: 0.5px; margin-bottom: 20px;">
+                    Mis Consultas Agendadas
+                </h3>
+                
+                <div class="modules-grid">
+                    {% for consulta in consultas %}
+                    <div class="mod-card" style="cursor: default; border-color: #000;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
+                            <h4 style="margin: 0; border: none; padding: 0; font-size: 13px;">
+                                CONSULTA #{{ consulta.id_consul }}
+                            </h4>
+                            <span class="badge-prioridad" style="background: #fff; color: #000; border: 2px solid #000;">
+                                {{ consulta.tipo }}
+                            </span>
+                        </div>
+                        <p style="margin: 6px 0;"><strong>NNA:</strong> {{ consulta.nombre_nna }}</p>
+                        <p style="margin: 6px 0; font-size: 12px;"><strong>MOTIVO:</strong> {{ consulta.motivo }}</p>
+                        <p style="margin: 6px 0; font-size: 11px; color: #333;">
+                            <strong>HORARIO:</strong> {{ consulta.fecha_consulta }}
+                        </p>
+                        <div class="card-actions" style="margin-top: 15px;">
+                            <a href="/consulta/detalle/{{ consulta.id_consul }}" class="btn-action" style="display: block; text-align: center;">
+                                VER DETALLES CITA
+                            </a>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="empty-state">No tienes consultas agendadas en tu calendario.</div>
+                    {% endfor %}
+                </div>
+            </section>
+
         </main>
     </div>
-    <script src="{{ url_for('static', filename='js/boton_inicio.js') }}"></script>
+
+    <script>
+        document.querySelectorAll('.sidebar .tab-btn[data-target]').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // 1. Remover estado activo de todos los botones del menú
+                document.querySelectorAll('.sidebar .tab-btn').forEach(b => b.classList.remove('active'));
+                
+                // 2. Ocultar todas las secciones de contenido
+                document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+                
+                // 3. Activar el botón clickeado y mostrar su respectiva sección
+                this.classList.add('active');
+                const targetId = this.getAttribute('data-target');
+                document.getElementById(targetId).classList.add('active');
+            });
+        });
+    </script>
+
 </body>
 </html>
