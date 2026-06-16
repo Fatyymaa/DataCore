@@ -1,9 +1,3 @@
--- ================================================================
--- BASE UNIFICADA Y NORMALIZADA — FUNDACIÓN NNA (DataCore)
--- Fusiona: script del equipo + pg_dump, corrige normalización
--- y agrega catálogos y módulos (NNA, tutores, casos, apoyos,
--- consultas, donantes, donaciones).  Motor: PostgreSQL
--- ================================================================
 
 -- ---------- 0. LIMPIEZA (orden de dependencias) ----------------
 DROP VIEW  IF EXISTS v_personal_rol CASCADE;
@@ -194,8 +188,7 @@ CREATE TABLE personal (
     esta_activo      BOOLEAN DEFAULT TRUE
 );
 
--- Regla de negocio: solo Psicologo, Doctor, Abogado y Trabajador
--- Social pueden ser voluntarios (es_empleado = FALSE)
+
 CREATE OR REPLACE FUNCTION fn_valida_voluntariado() RETURNS trigger AS $$
 BEGIN
     IF NEW.es_empleado = FALSE
@@ -486,7 +479,7 @@ INSERT INTO entidad_federativa (nom_ent) VALUES
 ON CONFLICT (nom_ent) DO NOTHING;
 
 
--- 1. DERECHOS (art. 13 de la LGDNNA) — necesario para el módulo de casos
+-- DERECHOS (art. 13 de la LGDNNA) — necesario para el módulo de casos
 INSERT INTO derecho (nom_der) VALUES
  ('Derecho a la vida, a la paz, a la supervivencia y al desarrollo'),
  ('Derecho de prioridad'),
@@ -510,12 +503,12 @@ INSERT INTO derecho (nom_der) VALUES
  ('Derecho de acceso a las tecnologías de la información y comunicación')
 ON CONFLICT (nom_der) DO NOTHING;
 
--- 2. EQUIPO MULTIDISCIPLINARIO inicial (los casos pueden asignarse a un equipo)
+-- . EQUIPO MULTIDISCIPLINARIO inicial (los casos pueden asignarse a un equipo)
 INSERT INTO equipo_multidisciplinario (nom_equipo) VALUES
  ('Equipo de Atención Integral A')
 ON CONFLICT (nom_equipo) DO NOTHING;
 
--- 3. CATÁLOGOS DE LENGUA que estaban vacíos (los usa el registro de NNA)
+-- . CATÁLOGOS DE LENGUA que estaban vacíos (los usa el registro de NNA)
 INSERT INTO modo_adquisicion_lengua (categ_mod_adc, desc_mod_adc) VALUES
  ('Lengua materna', 'Adquirida en el hogar desde el nacimiento'),
  ('Segunda lengua', 'Aprendida después de la lengua materna'),
@@ -528,11 +521,7 @@ INSERT INTO nivel_competencia_oral (niv_prac_com, sign_niv_com) VALUES
  ('Básico', 'Comprende y usa frases sencillas');
 
  -- ================================================================
--- POBLADO DE CATÁLOGOS + TABLA ENFERMEDAD + REGLA DE NEGOCIO
--- Fundación NNA (DataCore) — ejecutar UNA VEZ en pgAdmin
--- (Query Tool sobre base_normalizada, F5)
---
--- DISEÑO: todo respeta la normalización existente.
+
 --   * Catálogos = tablas independientes con su PK propia (no hay
 --     valores repetidos ni datos derivados almacenados).
 --   * Las relaciones NNA<->catálogo siguen siendo N:M en sus
@@ -543,14 +532,14 @@ INSERT INTO nivel_competencia_oral (niv_prac_com, sign_niv_com) VALUES
 -- ================================================================
 
 -- ----------------------------------------------------------------
--- 1. SEXO  (agregamos opción no binaria / no especificado)
+-- . SEXO  (agregamos opción no binaria / no especificado)
 -- ----------------------------------------------------------------
 INSERT INTO sexo (nom_sexo) VALUES
  ('OTRO'), ('NO ESPECIFICADO')
 ON CONFLICT (nom_sexo) DO NOTHING;
 
 -- ----------------------------------------------------------------
--- 2. NACIONALIDAD
+-- . NACIONALIDAD
 -- ----------------------------------------------------------------
 INSERT INTO nacionalidad (nom_nac) VALUES
  ('Guatemalteca'), ('Hondureña'), ('Salvadoreña'), ('Estadounidense'),
@@ -558,7 +547,7 @@ INSERT INTO nacionalidad (nom_nac) VALUES
 ON CONFLICT (nom_nac) DO NOTHING;
 
 -- ----------------------------------------------------------------
--- 3. ESCOLARIDAD  (completamos niveles faltantes)
+-- . ESCOLARIDAD  (completamos niveles faltantes)
 -- ----------------------------------------------------------------
 INSERT INTO escolaridad (nom_esc) VALUES
  ('Bachillerato técnico'), ('Educación especial'),
@@ -566,7 +555,7 @@ INSERT INTO escolaridad (nom_esc) VALUES
 ON CONFLICT (nom_esc) DO NOTHING;
 
 -- ----------------------------------------------------------------
--- 4. PARENTESCO  (más opciones reales de tutela)
+-- . PARENTESCO  (más opciones reales de tutela)
 -- ----------------------------------------------------------------
 INSERT INTO parentesco (nom_paren) VALUES
  ('Madre'), ('Padre'), ('Abuela'), ('Abuelo'),
@@ -575,14 +564,14 @@ INSERT INTO parentesco (nom_paren) VALUES
 ON CONFLICT (nom_paren) DO NOTHING;
 
 -- ----------------------------------------------------------------
--- 5. TIPO DE CONTACTO
+-- . TIPO DE CONTACTO
 -- ----------------------------------------------------------------
 INSERT INTO tipo_contacto (nom_tipo_con) VALUES
  ('WhatsApp'), ('Telefono de recados'), ('Red social')
 ON CONFLICT (nom_tipo_con) DO NOTHING;
 
 -- ----------------------------------------------------------------
--- 6. LENGUAS DE MÉXICO (catálogo amplio)
+-- . LENGUAS DE MÉXICO (catálogo amplio)
 --    La tabla 'lengua' NO tiene UNIQUE, así que para no duplicar
 --    al re-ejecutar insertamos sólo las que aún no existen
 --    (NOT EXISTS por variante_len).
@@ -626,7 +615,7 @@ WHERE NOT EXISTS (
 );
 
 -- ----------------------------------------------------------------
--- 7. CONDICIONES (DISCAPACIDAD) — completamos la taxonomía CIF
+-- . CONDICIONES (DISCAPACIDAD) — completamos la taxonomía CIF
 --    que ya existe. id_condicion es INT manual, seguimos la
 --    numeración desde 24 para no chocar con las 23 existentes.
 -- ----------------------------------------------------------------
@@ -644,7 +633,7 @@ INSERT INTO condicion (id_condicion, nombre, codigo_cif, id_subcategoria) VALUES
 ON CONFLICT (id_condicion) DO NOTHING;
 
 -- ================================================================
--- 8. NUEVA TABLA: ENFERMEDAD (separada de discapacidad)
+-- . NUEVA TABLA: ENFERMEDAD (separada de discapacidad)
 --    Una discapacidad clasifica con CIF; una enfermedad clasifica
 --    con CIE-10. Son cosas distintas -> tabla propia.
 --    Estructura espejo de 'condicion' (catálogo simple) con su
@@ -695,7 +684,6 @@ CREATE TABLE IF NOT EXISTS nna_enfermedad (
 );
 
 -- ================================================================
--- 9. REGLA DE NEGOCIO (TRIGGER):
 --    "Un equipo atiende varios NNA, pero un NNA NO puede ser
 --     atendido por varios equipos distintos."
 --
@@ -768,7 +756,7 @@ BEFORE INSERT OR UPDATE ON caso_nna
 FOR EACH ROW EXECUTE FUNCTION fn_un_equipo_por_nna_en_casonna();
 
 -- ----------------------------------------------------------------
--- 10. MÁS EQUIPOS MULTIDISCIPLINARIOS de ejemplo
+-- . MÁS EQUIPOS MULTIDISCIPLINARIOS de ejemplo
 -- ----------------------------------------------------------------
 INSERT INTO equipo_multidisciplinario (nom_equipo) VALUES
  ('Equipo de Atención Integral B'),
@@ -777,7 +765,7 @@ INSERT INTO equipo_multidisciplinario (nom_equipo) VALUES
 ON CONFLICT (nom_equipo) DO NOTHING;
 
 -- ================================================================
--- VERIFICACIÓN RÁPIDA (opcional: selecciona y ejecuta para revisar)
+-- VERIFICACIÓN RÁPIDA 
 -- ================================================================
 -- SELECT 'lenguas' AS catalogo, COUNT(*) FROM lengua
 -- UNION ALL SELECT 'condiciones', COUNT(*) FROM condicion
