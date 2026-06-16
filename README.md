@@ -1,74 +1,50 @@
-# DataCore 
+# DataCore — Sistema de Gestión de Capital Humano y Catálogos CIF
 
-Este repositorio contiene el desarrollo del sistema **DataCore**, un proyecto diseñado para la asignatura de **Bases de Datos** en la **ESCOM - IPN**. El objetivo es ofrecer una solución robusta para la administración de capital humano, integrando un backend eficiente en **Flask** con una base de datos relacional en **PostgreSQL**.
+Este repositorio contiene el desarrollo final del sistema DataCore, un proyecto integral diseñado para la asignatura de Bases de Datos en la ESCOM - IPN. El sistema ofrece una solución para una fundación de Niñas, Niños y Adolescentes (NNA) en situación de orfandad, integrando un backend en Flask con una arquitectura de datos relacional y normalizada en PostgreSQL.
 
-### Especificaciones Técnicas y Alcance
-El sistema se encuentra en una fase funcional al 100%, cubriendo el ciclo completo de vida de los datos (**CRUD**):
+## Especificaciones Técnicas y Alcance
 
-* **Arquitectura del Backend:** Desarrollado sobre **Python 3.12**, utilizando la librería `psycopg2` para gestionar la persistencia de datos y consultas mediante cursores de diccionario (`RealDictCursor`).
-* **Frontend y UX:** Dashboard administrativo con estética minimalista, priorizando la legibilidad y la eficiencia operativa mediante el motor de plantillas **Jinja2**.
-* **Validaciones de Integridad:** * **Identificadores Fiscales:** Implementación de restricciones de longitud para **RFC (13 caracteres)** y **CURP (18 caracteres)**, alineadas con los tipos de datos del esquema SQL.
-    * **Reglas de Negocio:** Validación de mayoría de edad y gestión de estados lógicos para el personal (Activo/Inactivo).
-* **Modelo Relacional:** Esquema normalizado que incluye tablas para `personal` y `roles`, con restricciones de unicidad en correos y llaves foráneas integradas.
+El sistema cubre el ciclo completo de vida de los datos (CRUD), garantizando la persistencia, seguridad e integridad de la información mediante dos grandes módulos:
 
-### Stack de Desarrollo (Entorno Local)
-* **Sistema Operativo:** Ubuntu (Linux).
-* **Lenguaje:** Python 3.12 con Flask.
-* **Motor de BD:** PostgreSQL 16.
-* **Herramientas de Control:** Git para el versionamiento y VS Code como IDE principal.
+### 1. Módulo de Administración de Personal
+* **Backend:** Desarrollado sobre Python 3.12, utilizando la librería psycopg2 para gestionar la persistencia y consultas mediante cursores de diccionario (RealDictCursor).
+* **Validaciones de Integridad:** Restricciones de longitud para identificadores fiscales (RFC de 13 caracteres y CURP de 18 caracteres). Control de reglas de negocio como la mayoría de edad y estados lógicos (Activo/Inactivo).
+* **Seguridad:** Sistema de autenticación (Login) integrado para la protección de las rutas administrativas del sistema.
 
-#como instalar
-instalar este sistema es bastante facil solo descomprima el archivo .zip arme la base de datos y de ahi solo corra el ccodigo app.py de preferencia en un entormo como lo es visual studio code 
-Catálogo de Discapacidades
+### 2. Módulo de Catálogo Clínico (Estándar CIF - OMS)
+* **Estructura en Cascada:** Implementación de la Clasificación Internacional del Funcionamiento, de la Discapacidad y de la Salud (CIF), organizada en una jerarquía de tres niveles para evitar redundancias:
+  * Categoria: Almacena los tipos generales de discapacidad.
+  * Subcategoria: Representa clasificaciones específicas ligadas a una categoría.
+  * Condicion: Contiene los diagnósticos o padecimientos clínicos concretos, incluyendo el atributo especializado cod_cif.
+* **Resolución de Discapacidades Múltiples:** Uso de la entidad intermedia Persona_Condicion mediante una relación Muchos a Muchos (M:N), permitiendo registrar múltiples diagnósticos por NNA sin duplicar registros en la entidad Persona.
 
-Descripción
+## Stack de Desarrollo (Entorno Local)
 
-Este proyecto consiste en el diseño e implementación de un catálogo de discapacidades mediante un modelo relacional. Está orientado a una fundación que apoya a niñas y niños en situación de orfandad, con el objetivo de organizar la información de manera clara, estructurada y eficiente.
+* **Sistema Operativo:** Ubuntu Linux.
+* **Lenguaje de Programación:** Python 3.12.
+* **Framework Web:** Flask con motor de plantillas Jinja2 para interfaces dinámicas.
+* **Motor de Base de Datos:** PostgreSQL 16.
+* **IDE:** Visual Studio Code.
 
-El catálogo permite clasificar las discapacidades en categorías, subcategorías y condiciones específicas, facilitando su consulta y análisis.
+## Archivos Incluidos en el Repositorio
 
-⸻
+* app.py: Código fuente principal del backend en Flask (rutas, validaciones y controladores).
+* base_normalizada.sql / fundacion1_db.sql: Scripts SQL con la creación de tablas, restricciones e integridad.
+* categoria.csv, subcategoria.csv, condicion.csv: Archivos de datos estructurados para la carga masiva de la clasificación CIF.
+* templates/ y static/ : Vistas HTML5 y hojas de estilo (CSS) del dashboard administrativo.
 
-Estructura de la base de datos
+## Instrucciones de Instalación y Despliegue
 
-El modelo está compuesto por las siguientes tablas:
-	•	Categoria: almacena los tipos generales de discapacidad.
-	•	Subcategoria: representa una clasificación más específica relacionada con una categoría.
-	•	Condicion: contiene las condiciones o diagnósticos asociados.
-	•	Persona: registra la información de las personas.
-	•	Persona_Condicion: tabla intermedia que permite asociar múltiples condiciones a una persona.
+Siga estos pasos en su entorno local de Ubuntu Linux para inicializar el servidor y la base de datos:
 
-Las tablas están relacionadas mediante claves primarias y foráneas, garantizando la integridad de los datos.
-
-⸻
-
-Archivos incluidos
-	•	fundacion1_db.sql: script con la creación de tablas e inserción de datos.
-	•	categoria.csv: catálogo de categorías.
-	•	subcategoria.csv: catálogo de subcategorías.
-	•	condicion.csv: catálogo de condiciones.
-	•	README.md: descripción del proyecto.
-
-⸻
-
-Cómo ejecutar la base de datos (PostgreSQL)
-
-1. Crear la base de datos
+### 1. Instalación de Dependencias
+Asegúrese de contar con Python y las librerías necesarias instaladas en su sistema:
+```bash
+pip install flask psycopg2-binary
 createdb discapacidad_db
-2. Ejecutar el script SQL
 psql -d discapacidad_db -f fundacion1_db.sql
-Cómo importar los archivos CSV
-
-En caso de querer cargar los datos desde archivos CSV, se pueden utilizar los siguientes comandos:
 \copy Categoria FROM 'categoria.csv' DELIMITER ',' CSV HEADER;
 \copy Subcategoria FROM 'subcategoria.csv' DELIMITER ',' CSV HEADER;
 \copy Condicion FROM 'condicion.csv' DELIMITER ',' CSV HEADER;
-Uso del sistema
+python3 app.py
 
-El modelo permite consultar la información completa mediante consultas SQL que integran múltiples tablas. Por ejemplo, es posible obtener el nombre de la persona junto con su condición, subcategoría y categoría correspondiente.
-
-⸻
-
-Contexto del proyecto
-
-Este catálogo fue desarrollado para una fundación que brinda apoyo a niñas y niños en situación de orfandad. La correcta organización de la información permite mejorar la toma de decisiones, asignar recursos de manera adecuada y ofrecer una atención más eficiente. 

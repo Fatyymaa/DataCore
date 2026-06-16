@@ -8,32 +8,75 @@
 <body>
     <header class="prof-header">
         <div>
-            <strong>DETALLE DE NNA:</strong> {{ nna.nombre }} {{ nna.apellido_p }}
+            <strong>DETALLE DE NNA:</strong> {{ nna.folio_nna }} | {{ nna.nombre }} {{ nna.apellido_p }}
         </div>
         <a href="/dashboard" style="color: #fff;">VOLVER AL DASHBOARD</a>
     </header>
 
     <main style="padding: 20px;">
         <div class="case-card">
-            <h2>Datos del NNA</h2>
+            
+            <!-- SECCIÓN: DATOS IDENTIFICADORES -->
+            <h2>Datos Identificadores</h2>
             <div class="info-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <p><strong>Folio:</strong> {{ nna.folio_nna }}</p>
                 <p><strong>Nombre:</strong> {{ nna.nombre }}</p>
                 <p><strong>Primer Apellido:</strong> {{ nna.apellido_p }}</p>
                 <p><strong>Segundo Apellido:</strong> {{ nna.apellido_m }}</p>
                 <p><strong>CURP:</strong> {{ nna.curp }}</p>
                 <p><strong>Fecha Nacimiento:</strong> {{ nna.fecha_nacimiento }}</p>
+                <p><strong>Lugar de Nacimiento:</strong> {{ nna.lugar_nacimiento }}</p>
+                <p><strong>Sexo:</strong> {{ nna.sexo }}</p>
             </div>
             
-            <h2 style="margin-top: 20px;">Datos de Domicilio</h2>
+            <hr style="margin: 20px 0;">
+
+            <!-- SECCIÓN: CONDICIONES Y LENGUA -->
+            <h2>Condiciones y Lengua</h2>
+<div class="info-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+    <p><strong>Lengua/Variante:</strong> {{ nna.lengua_nombre if nna.lengua_nombre else 'No especificada' }}</p>
+    <p><strong>Condición Inicial:</strong> {{ nna.condicion_nombre if nna.condicion_nombre else 'Sin diagnóstico actual' }}</p>
+</div>
+
+            <hr style="margin: 20px 0;">
+            
+            <!-- SECCIÓN: DIRECCIÓN -->
+            <h2>Dirección o Residencia Actual</h2>
             <div class="info-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <p><strong>Estado:</strong> {{ nna.estado }}</p>
+                <p><strong>Municipio / Alcaldía:</strong> {{ nna.municipio }}</p>
+                <p><strong>Colonia:</strong> {{ nna.colonia }}</p>
+                <p><strong>Código Postal:</strong> {{ nna.cp }}</p>
                 <p><strong>Calle:</strong> {{ nna.calle }}</p>
                 <p><strong>No. Exterior:</strong> {{ nna.numero_ext }}</p>
                 <p><strong>No. Interior:</strong> {{ nna.numero_int }}</p>
             </div>
             
             <hr style="margin: 20px 0;">
-            
-            <a href="/nna/editar/{{ nna.id_nna }}" class="btn-accion" style="background: #2c3e50; padding: 10px; color: #fff; text-decoration: none;">EDITAR INFORMACIÓN</a>
+            <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
+
+<h2>Información del Tutor / Representante</h2>
+
+{% if nna.tutor_nombre %}
+<div class="info-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+    <p><strong>Nombre del Tutor:</strong> {{ nna.tutor_nombre }} {{ nna.tutor_apellido_p }} {{ nna.tutor_apellido_m }}</p>
+    <p><strong>Parentesco:</strong> {{ nna.tutor_parentesco }}</p>
+    <p><strong>Ocupación:</strong> {{ nna.tutor_ocupacion if nna.tutor_ocupacion else 'No especificada' }}</p>
+    <p><strong>CURP del Tutor:</strong> {{ nna.tutor_curp if nna.tutor_curp else 'No registrado' }}</p>
+    <p><strong>¿Es Tutor Legal?:</strong> 
+        {% if nna.es_tutor_legal %}
+            <span style="color: green; font-weight: bold;">Sí</span>
+        {% else %}
+            <span style="color: orange; font-weight: bold;">No (Asignado temporal / familiar)</span>
+        {% endif %}
+    </p>
+</div>
+{% else %}
+<div style="background-color: #fff3cd; color: #856404; padding: 15px; border-radius: 5px; border: 1px solid #ffeeba;">
+    <strong>Atención:</strong> Este NNA no tiene ningún tutor asignado actualmente en el sistema.
+</div>
+{% endif %}
+            <a href="/nna/editar/{{ nna.id_nna }}" class="btn-accion" style="background: #2c3e50; padding: 10px; color: #fff; text-decoration: none; display: inline-block;">EDITAR INFORMACIÓN</a>
         </div>
     </main>
     <script src="{{ url_for('static', filename='js/boton_inicio.js') }}"></script>
