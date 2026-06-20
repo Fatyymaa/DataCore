@@ -106,13 +106,13 @@
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
                 
-                // 1. Remover estado activo de todos los botones del menú
+                
                 document.querySelectorAll('.sidebar .tab-btn').forEach(b => b.classList.remove('active'));
                 
-                // 2. Ocultar todas las secciones de contenido
+                
                 document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
                 
-                // 3. Activar el botón clickeado y mostrar su respectiva sección
+                
                 this.classList.add('active');
                 const targetId = this.getAttribute('data-target');
                 document.getElementById(targetId).classList.add('active');

@@ -1,16 +1,16 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, abort, flash
 import psycopg2
-import re  # Esta librería sirve para validar formatos de texto
+import re  
 import os
 from psycopg2.extras import RealDictConnection, RealDictCursor
+from functools import wraps
 
-# FORZAMOS UTF-8 para que los mensajes de error de PostgreSQL en español no provoquen fallos
 os.environ["PGCLIENTENCODING"] = "UTF8"
 
 app = Flask(__name__)
 app.secret_key = 'tu_llave_secreta_super_pro'
 
-# Función para la conexión de postgresql
+
 def conectar_db():
     return psycopg2.connect(
         host="localhost",
@@ -96,7 +96,7 @@ def crear_direccion(cur, d):
     return _primer_valor(cur.fetchone())
 
 
-# Consulta reutilizable que traduce la base nueva al formato de las plantillas
+
 QUERY_PERSONAL_COMPLETO = """
     SELECT p.*,
            s.nom_sexo  AS sexo,
@@ -117,6 +117,16 @@ QUERY_PERSONAL_COMPLETO = """
 # ----------------------------------------------------------------
 # CONTROLADORES: AUTENTICACIÓN Y PERSONAL (EMPLEADOS)
 # ----------------------------------------------------------------
+
+def requiere_coordinador(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Asumiendo que guardaste el rol en la sesión al loguear
+        if 'rol' not in session or session['rol'] != 2: 
+            flash("Acceso denegado: Solo el Coordinador puede realizar esta acción.", "danger")
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 @app.route('/')
 def index():
@@ -353,7 +363,7 @@ def home():
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
     try:
-        # 1. Obtener datos del perfil del profesional
+        
         query_usuario = """
             SELECT p.*, r.nombre_rol 
             FROM personal p 
@@ -366,7 +376,7 @@ def home():
         if not usuario:
             return "Usuario no encontrado o inactivo", 404
             
-        # 2. Consulta de Casos Asignados Activos
+        
         query_casos = """
             SELECT 
                 c.id_caso,
@@ -387,7 +397,7 @@ def home():
         cur.execute(query_casos, (id_personal,))
         casos_asignados = cur.fetchall()
 
-        # 3. NUEVA CONSULTA: Consultas/Citas agendadas para este profesional
+        
         query_consultas = """
             SELECT 
                 c.id_consul,
@@ -416,7 +426,7 @@ def home():
     if not usuario:
         return "Error interno del servidor", 500
         
-    # Pasamos 'casos' y 'consultas' directamente a la plantilla
+    
     return render_template('home.html', p=usuario, casos=casos_asignados, consultas=consultas_asignadas)
 
 # ----------------------------------------------------------------
@@ -456,8 +466,8 @@ def listar_nna():
     conn.close()
     return render_template('nna_listado.html', niños=niños)
 
-
 @app.route('/nna/registrar', methods=['GET', 'POST'])
+@requiere_coordinador
 def registrar_nna():
     if 'usuario_id' not in session: return redirect(url_for('index'))
 
@@ -469,11 +479,10 @@ def registrar_nna():
         try:
             id_dir = crear_direccion(cur, d)
 
-            # CURP opcional: si viene vacía guardamos NULL (por el UNIQUE)
+            
             curp = (d.get('curp') or '').strip().upper() or None
 
-            # La tabla nna no tiene id_len ni id_condicion: son relaciones
-            # N:M que viven en lenguaje_nna y nna_condicion
+            
             cur.execute("""
                 INSERT INTO nna (nombre, apellido_p, apellido_m, curp,
                                  fecha_nacimiento, lugar_nacimiento, id_sexo,
@@ -490,7 +499,7 @@ def registrar_nna():
             ))
             id_nna = _primer_valor(cur.fetchone())
 
-            # Folio máximo 10 caracteres (VARCHAR(10))
+            
             folio = d.get('folio_nna', '').strip() or f"NNA-{id_nna:05d}"
             cur.execute("UPDATE nna SET folio_nna = %s WHERE id_nna = %s",
                         (folio[:10], id_nna))
@@ -521,7 +530,7 @@ def registrar_nna():
             cur.close()
             conn.close()
 
-    # Carga de catálogos relacionales para renderizar el formulario dinámico
+    
     cur.execute("SELECT id_sexo, nom_sexo FROM sexo")
     sexos = cur.fetchall()
     cur.execute("SELECT id_esc, nom_esc FROM escolaridad")
@@ -550,7 +559,7 @@ def detalle_nna(id_nna):
     conn = conectar_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
-    # Consulta unificada: Datos del NNA + Direcciones + Catálogos + Tutor asignado
+    
     query = """
         SELECT nna.*, 
                s.nom_sexo AS sexo,
@@ -645,12 +654,6 @@ def registrar_tutor():
     conn.close()
     return render_template('tutor_registro.html', niños=niños, parentescos=parentescos, sexos=sexos)
 
-# ----------------------------------------------------------------
-# NUEVO — MÓDULO 4: CASOS (procedimiento art. 123 LGDNNA)
-# Tres pantallas: listado, apertura y EXPEDIENTE del caso.
-# El expediente concentra: NNA, derechos vulnerados/restituidos,
-# personal asignado, seguimientos y control de estatus.
-# ----------------------------------------------------------------
 
 @app.route('/casos')
 def listar_casos():
@@ -689,11 +692,11 @@ def registrar_caso():
     if request.method == 'POST':
         d = request.form
         try:
-            # 1. Estatus inicial: siempre 'Deteccion' (primer paso del art. 123)
+            
             cur.execute("SELECT id_est_caso FROM estatus_caso WHERE nom_est_caso = 'Deteccion'")
             id_est = _primer_valor(cur.fetchone())
 
-            # 2. Crear el caso (folio automático: la columna es VARCHAR(25))
+            
             cur.execute("""
                 INSERT INTO caso (folio_caso, nom_caso, narracion, id_est_caso, id_equipo)
                 VALUES ('TEMP', %s, %s, %s, %s)
@@ -706,13 +709,12 @@ def registrar_caso():
             cur.execute("UPDATE caso SET folio_caso = %s WHERE id_caso = %s",
                         (folio, id_caso))
 
-            # 3. Vincular el NNA afectado (obligatorio: un caso es sobre un NNA)
+            
             cur.execute("""
                 INSERT INTO caso_nna (id_caso, id_nna) VALUES (%s, %s)
             """, (id_caso, d['id_nna']))
 
-            # 4. Registrar los derechos vulnerados marcados (checkboxes:
-            #    getlist trae TODOS los seleccionados)
+            
             for id_der in request.form.getlist('derechos'):
                 cur.execute("""
                     INSERT INTO caso_derecho (id_caso, id_nna, id_der)
@@ -720,7 +722,7 @@ def registrar_caso():
                     ON CONFLICT DO NOTHING
                 """, (id_caso, d['id_nna'], id_der))
 
-            # 5. Quien abre el caso queda asignado automáticamente con su rol
+            
             cur.execute("SELECT rol_id FROM personal WHERE id = %s", (session['usuario_id'],))
             rol_usuario = _primer_valor(cur.fetchone())
             cur.execute("""
@@ -740,7 +742,7 @@ def registrar_caso():
             cur.close()
             conn.close()
 
-    # GET: catálogos para el formulario
+    
     cur.execute("""
         SELECT id_nna, folio_nna, nombre, apellido_p, apellido_m
         FROM nna ORDER BY nombre, apellido_p
@@ -765,7 +767,7 @@ def detalle_caso(id_caso):
     conn = conectar_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    # Datos generales del caso
+    
     cur.execute("""
         SELECT c.*, ec.nom_est_caso AS estatus, eq.nom_equipo
         FROM caso c
@@ -778,7 +780,7 @@ def detalle_caso(id_caso):
         cur.close(); conn.close()
         return "Caso no encontrado", 404
 
-    # NNA vinculados al caso
+    
     cur.execute("""
         SELECT n.id_nna, n.folio_nna, n.nombre, n.apellido_p, n.apellido_m,
                n.fecha_nacimiento, s.nom_sexo AS sexo, cn.fecha_incorp
@@ -790,7 +792,7 @@ def detalle_caso(id_caso):
     """, (id_caso,))
     nna_caso = cur.fetchall()
 
-    # Derechos vulnerados/restituidos por NNA
+    
     cur.execute("""
         SELECT cd.*, der.nom_der, n.nombre AS nna_nombre, n.apellido_p AS nna_apellido
         FROM caso_derecho cd
@@ -801,7 +803,7 @@ def detalle_caso(id_caso):
     """, (id_caso,))
     derechos_caso = cur.fetchall()
 
-    # Personal asignado (vigente)
+    
     cur.execute("""
         SELECT ac.*, p.nombre, p.apellido_p, r.nombre_rol
         FROM asignacion_caso ac
@@ -812,8 +814,7 @@ def detalle_caso(id_caso):
     """, (id_caso,))
     asignados = cur.fetchall()
 
-    # Seguimientos (aquí viven el seguimiento legal, psicológico, etc.:
-    # cada nota queda firmada por quien la hizo y su rol)
+    
     cur.execute("""
         SELECT sg.*, p.nombre, p.apellido_p, r.nombre_rol
         FROM seguimiento sg
@@ -824,7 +825,7 @@ def detalle_caso(id_caso):
     """, (id_caso,))
     seguimientos = cur.fetchall()
 
-    # Catálogos para las acciones del expediente
+    
     cur.execute("""
         SELECT id_nna, folio_nna, nombre, apellido_p FROM nna
         WHERE id_nna NOT IN (SELECT id_nna FROM caso_nna WHERE id_caso = %s)
@@ -988,9 +989,7 @@ def caso_cambiar_estatus(id_caso):
         cur.close(); conn.close()
     return redirect(url_for('detalle_caso', id_caso=id_caso))
 
-# ----------------------------------------------------------------
-# PANTALLAS COMPLEMENTARIAS ORIGINALES (MANTENIDAS)
-# ----------------------------------------------------------------
+
 
 @app.route('/pantalla_personas')
 def pantalla_personas():
@@ -1093,16 +1092,7 @@ def agregar_valor_catalogo(cat):
 
     return redirect(url_for('administrar_catalogos', cat=cat))
 
-# ----------------------------------------------------------------
-# CONSULTAS: se ligan directamente a un NNA (no requieren caso).
-#            Tipos: Médica, Psicológica, Jurídica, Trabajo Social.
-# APOYOS:    se ligan a un caso+NNA (por la FK compuesta a caso_nna),
-#            por eso primero eliges el caso y luego el NNA de ese caso.
-# ================================================================
 
-# ----------------------------------------------------------------
-# MÓDULO 6: CONSULTAS
-# ----------------------------------------------------------------
 
 @app.route('/consultas')
 def listar_consultas():
@@ -1159,7 +1149,7 @@ def registrar_consulta():
             cur.close()
             conn.close()
 
-    # GET: catálogos para el formulario
+    
     cur.execute("""
         SELECT id_nna, folio_nna, nombre, apellido_p, apellido_m
         FROM nna ORDER BY nombre, apellido_p
@@ -1167,7 +1157,7 @@ def registrar_consulta():
     nna_lista = cur.fetchall()
     cur.execute("SELECT id_tipo_consul, nom_tipo_consul FROM tipo_consulta ORDER BY id_tipo_consul")
     tipos = cur.fetchall()
-    # Solo profesionales que dan consultas (médico, psicólogo, abogado, T. social)
+    
     cur.execute("""
         SELECT p.id, p.nombre, p.apellido_p, r.nombre_rol
         FROM personal p JOIN roles r ON r.id = p.rol_id
@@ -1184,9 +1174,7 @@ def registrar_consulta():
                            profesionales=profesionales)
 
 
-# ----------------------------------------------------------------
-# MÓDULO 7: APOYOS  (ligados a caso + NNA)
-# ----------------------------------------------------------------
+
 
 @app.route('/apoyos')
 def listar_apoyos():
@@ -1235,7 +1223,7 @@ def registrar_apoyo():
                 d['id_caso'], d['id_nna'], d['id_tipo_apo'],
                 d.get('descripcion') or None,
                 d.get('monto') or None,
-                session['usuario_id']  # quien autoriza es el usuario en sesión
+                session['usuario_id']  
             ))
             conn.commit()
             flash("Apoyo registrado con éxito", "success")
@@ -1249,8 +1237,7 @@ def registrar_apoyo():
             cur.close()
             conn.close()
 
-    # GET: para apoyos necesitamos las PAREJAS caso+NNA válidas (caso_nna),
-    # porque la FK del apoyo apunta a esa combinación, no a cualquier NNA.
+    
     cur.execute("""
         SELECT cn.id_caso, cn.id_nna,
                c.folio_caso, c.nom_caso,
@@ -1269,12 +1256,7 @@ def registrar_apoyo():
     return render_template('apoyo_registro.html',
                            pares_caso_nna=pares_caso_nna, tipos=tipos)
 
-# ----------------------------------------------------------------
-# La membresía vive en la tabla puente 'equipo_miembro', con
-# fecha_alta y fecha_baja. NUNCA borramos un miembro: cerramos su
-# fecha_baja. Así se conserva el historial completo y los cambios
-# de un miembro no afectan a los demás.
-# ================================================================
+
 
 @app.route('/equipos')
 def listar_equipos():
@@ -1336,14 +1318,14 @@ def detalle_equipo(id_equipo):
     conn = conectar_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    # Datos del equipo
+    
     cur.execute("SELECT * FROM equipo_multidisciplinario WHERE id_equipo = %s", (id_equipo,))
     equipo = cur.fetchone()
     if not equipo:
         cur.close(); conn.close()
         return "Equipo no encontrado", 404
 
-    # Miembros ACTIVOS (fecha_baja IS NULL)
+    
     cur.execute("""
         SELECT em.*, p.nombre, p.apellido_p, p.apellido_m, r.nombre_rol
         FROM equipo_miembro em
@@ -1354,7 +1336,7 @@ def detalle_equipo(id_equipo):
     """, (id_equipo,))
     miembros_activos = cur.fetchall()
 
-    # Historial: miembros que YA salieron (fecha_baja NO nula)
+    
     cur.execute("""
         SELECT em.*, p.nombre, p.apellido_p, r.nombre_rol
         FROM equipo_miembro em
@@ -1365,7 +1347,7 @@ def detalle_equipo(id_equipo):
     """, (id_equipo,))
     historial = cur.fetchall()
 
-    # Casos que atiende el equipo
+    
     cur.execute("""
         SELECT c.id_caso, c.folio_caso, c.nom_caso, ec.nom_est_caso AS estatus
         FROM caso c
@@ -1375,8 +1357,7 @@ def detalle_equipo(id_equipo):
     """, (id_equipo,))
     casos = cur.fetchall()
 
-    # Personal activo que NO está ya en el equipo (para el desplegable de alta).
-    # Excluimos a quienes ya tienen membresía activa en este equipo.
+
     cur.execute("""
         SELECT p.id, p.nombre, p.apellido_p, r.nombre_rol
         FROM personal p
@@ -1459,8 +1440,8 @@ def editar_nna(id_nna):
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
     if request.method == 'POST':
-        # --- 1. RECUPERAR VALORES DEL FORMULARIO ---
-        # Datos del NNA
+        
+        
         folio_nna = request.form.get('folio_nna')
         nombre = request.form.get('nombre')
         apellido_p = request.form.get('apellido_p') or None
@@ -1471,7 +1452,7 @@ def editar_nna(id_nna):
         id_esc = request.form.get('id_esc') or None
         lugar_nacimiento = request.form.get('lugar_nacimiento') or None
         
-        # Datos Domiciliarios
+        
         calle = request.form.get('calle')
         numero_ext = request.form.get('numero_ext')
         numero_int = request.form.get('numero_int') or None
@@ -1481,36 +1462,36 @@ def editar_nna(id_nna):
         cp_asen = request.form.get('cp_asen') or None
         id_ent_domicilio = request.form.get('id_ent_domicilio') or None
         
-        # Tablas Relacionales (Intermedias)
+        
         id_len = request.form.get('id_len')
         id_condicion = request.form.get('id_condicion')
 
         try:
-            # --- 2. GESTIÓN DE DIRECCIÓN Y ASENTAMIENTO ---
+            
             cur.execute("SELECT id_direccion FROM nna WHERE id_nna = %s", (id_nna,))
             res_nna = cur.fetchone()
             id_direccion = res_nna['id_direccion'] if res_nna else None
 
             if id_direccion:
-                # Si ya tiene dirección asignada, obtenemos su id_asen
+                
                 cur.execute("SELECT id_asen FROM direccion WHERE id_direccion = %s", (id_direccion,))
                 id_asen = cur.fetchone()['id_asen']
                 
-                # Actualizamos asentamiento
+                
                 cur.execute("""
                     UPDATE asentamiento 
                     SET nom_mun = %s, nom_col = %s, cp_asen = %s, id_ent = %s 
                     WHERE id_asen = %s
                 """, (nom_mun, nom_col, cp_asen, id_ent_domicilio, id_asen))
                 
-                # Actualizamos direccion
+                
                 cur.execute("""
                     UPDATE direccion 
                     SET calle = %s, numero_ext = %s, numero_int = %s, referencias = %s 
                     WHERE id_direccion = %s
                 """, (calle, numero_ext, numero_int, referencias, id_direccion))
             else:
-                # Si no tenía dirección previa en el sistema, creamos los registros desde cero
+                
                 cur.execute("""
                     INSERT INTO asentamiento (nom_mun, nom_col, cp_asen, id_ent) 
                     VALUES (%s, %s, %s, %s) RETURNING id_asen
@@ -1523,7 +1504,7 @@ def editar_nna(id_nna):
                 """, (calle, numero_ext, numero_int, referencias, id_asen))
                 id_direccion = cur.fetchone()['id_direccion']
 
-            # --- 3. ACTUALIZAR TABLA PRINCIPAL (NNA) ---
+            
             cur.execute("""
                 UPDATE nna 
                 SET folio_nna = %s, nombre = %s, apellido_p = %s, apellido_m = %s, 
@@ -1533,26 +1514,26 @@ def editar_nna(id_nna):
             """, (folio_nna, nombre, apellido_p, apellido_m, fecha_nacimiento, curp, 
                   id_sexo, id_esc, id_direccion, lugar_nacimiento, id_nna))
 
-            # --- 4. ACTUALIZAR TABLA INTERMEDIA: LENGUAJE_NNA ---
+            
             cur.execute("DELETE FROM lenguaje_nna WHERE id_nna = %s", (id_nna,))
             if id_len:
                 cur.execute("INSERT INTO lenguaje_nna (id_nna, id_len) VALUES (%s, %s)", (id_nna, id_len))
 
-            # --- 5. ACTUALIZAR TABLA INTERMEDIA: NNA_CONDICION ---
+            
             cur.execute("DELETE FROM nna_condicion WHERE id_nna = %s", (id_nna,))
             if id_condicion:
                 cur.execute("INSERT INTO nna_condicion (id_nna, id_condicion) VALUES (%s, %s)", (id_nna, id_condicion))
 
-            # Si todo salió bien, guardamos cambios permanentemente
+            
             conn.commit()
             return redirect(url_for('detalle_nna', id_nna=id_nna))
 
         except Exception as e:
             conn.rollback()
             print(f"Error crítico detectado en la actualización: {e}")
-            # Puedes retornar un mensaje flash o renderizar un error aquí si lo prefieres
+            
 
-    # --- CONTROLADOR EN MODO GET (Carga de datos actuales) ---
+    
     cur.execute("""
         SELECT nna.*, 
                d.calle, d.numero_ext, d.numero_int, d.referencias,
@@ -1567,7 +1548,7 @@ def editar_nna(id_nna):
     """, (id_nna,))
     nna = cur.fetchone()
 
-    # Cargar los catálogos requeridos para renderizar los elementos <select>
+    
     cur.execute("SELECT id_sexo, nom_sexo FROM sexo ORDER BY nom_sexo")
     cat_sexo = cur.fetchall()
 

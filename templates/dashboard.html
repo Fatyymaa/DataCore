@@ -23,7 +23,7 @@
             <h3>Módulo 2: Infancias (NNA)</h3>
             <a href="/nna/registrar" class="tab-btn">Registrar NNA</a>
             <a href="/nna" class="tab-btn">M2: Modulo NNA</a>
-
+            
             <h3>Módulo 3: Familias</h3>
             <a href="/tutor/registrar" class="tab-btn">Registrar Tutor</a>
 
@@ -57,7 +57,7 @@
 
             <div id="inicio-panel" class="view-section active">
                 <div class="welcome-box">
-                    <h1 style="margin: 0 0 10px 0; text-transform: uppercase;">¡Bienvenida al Sistema, {{ nombre }}!</h1>
+                    <h1 style="margin: 0 0 10px 0; text-transform: uppercase;">¡Bienvenido al Sistema, {{ nombre }}!</h1>
                     <p style="margin: 0; color: #555;">Selecciona a continuación el módulo o la acción operativa que deseas ejecutar el día de hoy:</p>
                 </div>
 
@@ -70,16 +70,18 @@
                             <button class="btn-submit" style="font-size:11px; background:#444;" onclick="cambiarPestaña('lista-personal')">-> Ver Listado Existente</button>
                         </div>
                     </div>
-
+                    
                     <div class="mod-card">
                         <h4>Módulo 2: Infancias (NNA)</h4>
                         <p>Registro y resguardo de datos de Niñas, Niños y Adolescentes protegidos, control de escolaridad y asignación médica inicial.</p>
                         <div class="card-actions">
+                        
                             <a href="/nna/registrar" class="btn-submit" style="font-size:11px; text-decoration:none; text-align:center;">-> Registrar Nuevo NNA</a>
                             <a href="/nna" class="btn-submit" style="font-size:11px; background:#444; text-decoration:none; text-align:center;">-> Ver Expedientes NNA</a>
+                        
                         </div>
                     </div>
-
+                    
                     <div class="mod-card">
                         <h4>Módulo 3: Familias</h4>
                         <p>Vinculación legal de padres de familia, tutores o contactos de emergencia directo a las fichas de los menores protegidos.</p>
@@ -135,11 +137,11 @@
                             <input type="text" name="nombre" required>
                         </div>
                         <div class="form-group">
-                            <label>Apellido Paterno:</label>
+                            <label>Primer Apellido:</label>
                             <input type="text" name="apellido_p" required>
                         </div>
                         <div class="form-group">
-                            <label>Apellido Materno:</label>
+                            <label>Segundo Apellido:</label>
                             <input type="text" name="apellido_m" required>
                         </div>
                         <div class="form-group">
