@@ -31,15 +31,13 @@
             <a href="/casos/registrar" class="tab-btn">Abrir Caso</a>
             <a href="/casos" class="tab-btn">M4: Expedientes</a>
 
-           
+            <h3>Módulo 5: Catálogos</h3>
+            <a href="/catalogos" class="tab-btn">Administrar Catálogos</a>
+            <a href="/discapacidades" class="tab-btn">Discapacidades (CIF)</a>
 
             <h3>Módulo 6: Consultas</h3>
             <a href="/consultas/registrar" class="tab-btn">Registrar Consulta</a>
             <a href="/consultas" class="tab-btn">M6: Ver Consultas</a>
-
-            <h3>Módulo 7: Apoyos</h3>
-            <a href="/apoyos/registrar" class="tab-btn">Registrar Apoyo</a>
-            <a href="/apoyos" class="tab-btn">M7: Ver Apoyos</a>
 
             <h3>Módulo 8: Equipos</h3>
             <a href="/equipos" class="tab-btn">Gestionar Equipos</a>
@@ -75,10 +73,8 @@
                         <h4>Módulo 2: Infancias (NNA)</h4>
                         <p>Registro y resguardo de datos de Niñas, Niños y Adolescentes protegidos, control de escolaridad y asignación médica inicial.</p>
                         <div class="card-actions">
-                        
                             <a href="/nna/registrar" class="btn-submit" style="font-size:11px; text-decoration:none; text-align:center;">-> Registrar Nuevo NNA</a>
                             <a href="/nna" class="btn-submit" style="font-size:11px; background:#444; text-decoration:none; text-align:center;">-> Ver Expedientes NNA</a>
-                        
                         </div>
                     </div>
                     
@@ -99,22 +95,21 @@
                         </div>
                     </div>
 
-                    
+                    <div class="mod-card">
+                        <h4>Módulo 5: Catálogos</h4>
+                        <p>Administración de los catálogos del sistema (derechos, tipos de consulta, enfermedades, lenguas, escolaridad y más). Agrega valores que aparecerán como opciones en los formularios.</p>
+                        <div class="card-actions">
+                            <a href="/catalogos" class="btn-submit" style="font-size:11px; text-decoration:none; text-align:center;">-> Administrar Catálogos</a>
+                            <a href="/discapacidades" class="btn-submit" style="font-size:11px; background:#444; text-decoration:none; text-align:center;">-> Discapacidades (CIF)</a>
+                        </div>
+                    </div>
+
                     <div class="mod-card">
                         <h4>Módulo 6: Consultas</h4>
                         <p>Registro de consultas de atención a NNA (médica, psicológica, jurídica y de trabajo social), con el profesional que atiende y las notas de cada sesión.</p>
                         <div class="card-actions">
                             <a href="/consultas/registrar" class="btn-submit" style="font-size:11px; text-decoration:none; text-align:center;">-> Registrar Consulta</a>
                             <a href="/consultas" class="btn-submit" style="font-size:11px; background:#444; text-decoration:none; text-align:center;">-> Ver Consultas</a>
-                        </div>
-                    </div>
-
-                    <div class="mod-card">
-                        <h4>Módulo 7: Apoyos</h4>
-                        <p>Registro de apoyos otorgados dentro de un caso (económico, médico, educativo, alimentario, etc.), con su monto y el responsable que los autoriza.</p>
-                        <div class="card-actions">
-                            <a href="/apoyos/registrar" class="btn-submit" style="font-size:11px; text-decoration:none; text-align:center;">-> Registrar Apoyo</a>
-                            <a href="/apoyos" class="btn-submit" style="font-size:11px; background:#444; text-decoration:none; text-align:center;">-> Ver Apoyos</a>
                         </div>
                     </div>
 
@@ -358,7 +353,6 @@
 
         // FUNCIÓN 2: EL BUSCADOR EN TIEMPO REAL
         function filtrarPersonalSeccionado() {
-            // 1. Capturar lo que el usuario escribió en cada input (en MAYÚSCULAS)
             const fNombre = document.getElementById('f-nombre').value.toUpperCase();
             const fPaterno = document.getElementById('f-paterno').value.toUpperCase();
             const fMaterno = document.getElementById('f-materno').value.toUpperCase();
@@ -369,11 +363,9 @@
             const fRol = document.getElementById('f-rol').value.toUpperCase();
             const fEstado = document.getElementById('f-estado').value.toUpperCase();
 
-            // 2. Traer todas las filas de la tabla de personal
             const filas = document.querySelectorAll('#lista-personal table tbody tr');
 
             filas.forEach(fila => {
-                // 3. Leer las variables reales guardadas en los atributos data- de la fila
                 const dNombre = (fila.getAttribute('data-nombre') || '').toUpperCase();
                 const dPaterno = (fila.getAttribute('data-paterno') || '').toUpperCase();
                 const dMaterno = (fila.getAttribute('data-materno') || '').toUpperCase();
@@ -384,7 +376,6 @@
                 const dRol = (fila.getAttribute('data-rol') || '').toUpperCase();
                 const dEstado = (fila.getAttribute('data-estado') || '').toUpperCase();
 
-                // 4. Evaluar si la fila coincide con TODOS los campos que tienen texto
                 const coincide = 
                     dNombre.includes(fNombre) &&
                     dPaterno.includes(fPaterno) &&
@@ -396,7 +387,6 @@
                     dRol.includes(fRol) &&
                     (fEstado === "" || dEstado === fEstado); 
 
-                // 5. Mostrar u ocultar la fila según el resultado cruzado
                 if (coincide) {
                     fila.style.display = "";
                 } else {

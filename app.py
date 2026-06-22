@@ -14,17 +14,15 @@ app.secret_key = 'tu_llave_secreta_super_pro'
 def conectar_db():
     return psycopg2.connect(
         host="localhost",
-        database="fundacion_db",
+        database="base_normalizada",
         user="postgres",
-        password="1234"
+        password="Diana2005"
     )
 
 # ----------------------------------------------------------------
 # FUNCIONES AUXILIARES PARA EL ESQUEMA NORMALIZADO
 # ----------------------------------------------------------------
 
-# Las auxiliares hacían fila[0], pero con RealDictCursor las filas son
-# diccionarios. Esta función funciona con ambos tipos de cursor.
 def _primer_valor(fila):
     if fila is None:
         return None
@@ -34,7 +32,6 @@ def _primer_valor(fila):
 
 
 def obtener_id_sexo(cur, valor):
-    """Convierte lo que mande el formulario al id_sexo que espera la base de datos."""
     if valor is None or str(valor).strip() == '':
         return None
     valor = str(valor).strip()
@@ -45,7 +42,6 @@ def obtener_id_sexo(cur, valor):
 
 
 def obtener_o_crear_asentamiento(cur, municipio, colonia, cp, estado):
-    """Busca o inserta entidades y asentamientos dinámicamente."""
     cur.execute("SELECT id_ent FROM entidad_federativa WHERE nom_ent ILIKE %s", (estado,))
     fila = cur.fetchone()
     if fila:
@@ -76,7 +72,6 @@ def obtener_o_crear_asentamiento(cur, municipio, colonia, cp, estado):
 
 
 def crear_direccion(cur, d):
-    """Crea una dirección con el nuevo esquema y devuelve su id_direccion."""
     id_asen = obtener_o_crear_asentamiento(
         cur,
         d.get('municipio'),
@@ -115,18 +110,21 @@ QUERY_PERSONAL_COMPLETO = """
 """
 
 # ----------------------------------------------------------------
-# CONTROLADORES: AUTENTICACIÓN Y PERSONAL (EMPLEADOS)
+# CONTROL DE ACCESO POR ROL
 # ----------------------------------------------------------------
 
 def requiere_coordinador(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Asumiendo que guardaste el rol en la sesión al loguear
         if 'rol' not in session or session['rol'] != 2: 
             flash("Acceso denegado: Solo el Coordinador puede realizar esta acción.", "danger")
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
     return decorated_function
+
+# ----------------------------------------------------------------
+# CONTROLADORES: AUTENTICACIÓN Y PERSONAL (EMPLEADOS)
+# ----------------------------------------------------------------
 
 @app.route('/')
 def index():
@@ -363,7 +361,6 @@ def home():
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
     try:
-        
         query_usuario = """
             SELECT p.*, r.nombre_rol 
             FROM personal p 
@@ -376,7 +373,6 @@ def home():
         if not usuario:
             return "Usuario no encontrado o inactivo", 404
             
-        
         query_casos = """
             SELECT 
                 c.id_caso,
@@ -397,7 +393,6 @@ def home():
         cur.execute(query_casos, (id_personal,))
         casos_asignados = cur.fetchall()
 
-        
         query_consultas = """
             SELECT 
                 c.id_consul,
@@ -426,7 +421,6 @@ def home():
     if not usuario:
         return "Error interno del servidor", 500
         
-    
     return render_template('home.html', p=usuario, casos=casos_asignados, consultas=consultas_asignadas)
 
 # ----------------------------------------------------------------
@@ -439,10 +433,6 @@ def listar_nna():
 
     conn = conectar_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    # El estatus se deriva de los casos (normalización):
-    #   EN ATENCION = tiene al menos un caso abierto (estatus <> 'Cerrado')
-    #   ATENDIDO    = tiene casos pero todos cerrados
-    #   REGISTRADO  = no tiene ningún caso todavía
     cur.execute("""
         SELECT n.*, s.nom_sexo AS sexo, esc.nom_esc AS escolaridad,
                CASE
@@ -479,10 +469,8 @@ def registrar_nna():
         try:
             id_dir = crear_direccion(cur, d)
 
-            
             curp = (d.get('curp') or '').strip().upper() or None
 
-            
             cur.execute("""
                 INSERT INTO nna (nombre, apellido_p, apellido_m, curp,
                                  fecha_nacimiento, lugar_nacimiento, id_sexo,
@@ -499,24 +487,50 @@ def registrar_nna():
             ))
             id_nna = _primer_valor(cur.fetchone())
 
-            
             folio = d.get('folio_nna', '').strip() or f"NNA-{id_nna:05d}"
             cur.execute("UPDATE nna SET folio_nna = %s WHERE id_nna = %s",
                         (folio[:10], id_nna))
 
-            if d.get('id_len'):
-                cur.execute("""
-                    INSERT INTO lenguaje_nna (id_nna, id_len, preferente)
-                    VALUES (%s, %s, TRUE)
-                    ON CONFLICT DO NOTHING
-                """, (id_nna, d['id_len']))
+            # --- MÚLTIPLES LENGUAS CON PREFERENTE, MODO Y NIVELES ---
+            # El formulario manda una lista de id_len (lenguas elegidas),
+            # un id preferente (radio), y por CADA lengua sus atributos
+            # nombrados con el id: modo_<id>, oral_<id>, escrito_<id>.
+            lenguas_elegidas = request.form.getlist('lenguas')   # lista de ids
+            len_preferente = d.get('lengua_preferente')          # un solo id (o None)
 
-            if d.get('id_condicion'):
+            for id_len in lenguas_elegidas:
+                es_pref = (str(id_len) == str(len_preferente))
+                # Atributos específicos de esta lengua (pueden venir vacíos)
+                id_mod    = d.get(f'modo_{id_len}') or None
+                id_oral   = d.get(f'oral_{id_len}') or None
+                id_escrito = d.get(f'escrito_{id_len}') or None
                 cur.execute("""
-                    INSERT INTO nna_condicion (id_nna, id_condicion)
-                    VALUES (%s, %s)
-                    ON CONFLICT DO NOTHING
-                """, (id_nna, d['id_condicion']))
+                    INSERT INTO lenguaje_nna
+                        (id_nna, id_len, preferente, id_mod_adc, id_niv_com, id_niv_escrito)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id_nna, id_len) DO UPDATE SET
+                        preferente = EXCLUDED.preferente,
+                        id_mod_adc = EXCLUDED.id_mod_adc,
+                        id_niv_com = EXCLUDED.id_niv_com,
+                        id_niv_escrito = EXCLUDED.id_niv_escrito
+                """, (id_nna, id_len, es_pref, id_mod, id_oral, id_escrito))
+
+            # --- MÚLTIPLES DISCAPACIDADES CON GRADO POR NNA ---
+            # Por cada discapacidad elegida, el usuario captura su
+            # grado de dificultad y dependencia PARA ESE NIÑO. Los
+            # campos vienen nombrados con el id: gradodif_<id>,
+            # gradodep_<id>. El grado es un atributo de la relación
+            # (NNA, condición), por eso vive en nna_condicion.
+            for id_cond in request.form.getlist('condiciones'):
+                id_gdif = d.get(f'gradodif_{id_cond}') or None
+                id_gdep = d.get(f'gradodep_{id_cond}') or None
+                cur.execute("""
+                    INSERT INTO nna_condicion (id_nna, id_condicion, id_grado_dif, id_grado_dep)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (id_nna, id_condicion) DO UPDATE SET
+                        id_grado_dif = EXCLUDED.id_grado_dif,
+                        id_grado_dep = EXCLUDED.id_grado_dep
+                """, (id_nna, id_cond, id_gdif, id_gdep))
 
             conn.commit()
             flash(f"Menor protegido registrado exitosamente. Folio: {folio[:10]}", "success")
@@ -530,35 +544,59 @@ def registrar_nna():
             cur.close()
             conn.close()
 
-    
     cur.execute("SELECT id_sexo, nom_sexo FROM sexo")
     sexos = cur.fetchall()
     cur.execute("SELECT id_esc, nom_esc FROM escolaridad")
     escolaridades = cur.fetchall()
-    cur.execute("SELECT id_len, variante_len FROM lengua ORDER BY variante_len")
-    lenguas = cur.fetchall()
+    # Traemos TODOS los campos de la lengua para mostrarlos en la pantalla
     cur.execute("""
-        SELECT c.id_condicion, c.nombre, ca.nombre AS categoria
-        FROM condicion c
-        JOIN subcategoria sc ON sc.id_subcategoria = c.id_subcategoria
-        JOIN categoria ca    ON ca.id_categoria   = sc.id_categoria
-        ORDER BY ca.nombre, c.nombre
+        SELECT id_len, variante_len, familia_len, agrupacion_len, autodenom_len
+        FROM lengua ORDER BY variante_len
+    """)
+    lenguas = cur.fetchall()
+    # Datos para la cascada Categoría -> Subcategoría -> Condición
+    cur.execute("SELECT id_categoria, nombre FROM categoria ORDER BY nombre")
+    categorias = cur.fetchall()
+    cur.execute("SELECT id_subcategoria, nombre, id_categoria FROM subcategoria ORDER BY nombre")
+    subcategorias = cur.fetchall()
+    cur.execute("""
+        SELECT id_condicion, nombre, codigo_cif, id_subcategoria
+        FROM condicion ORDER BY nombre
     """)
     condiciones = cur.fetchall()
+    # Catálogos de grados (los elige el usuario por cada NNA)
+    cur.execute("""
+        SELECT id_grado_dif, nom_grado_dif, codigo_cif_dif,
+               desc_cualitativa, rango_porcent
+        FROM grado_dificultad ORDER BY codigo_cif_dif
+    """)
+    grados_dif = cur.fetchall()
+    cur.execute("SELECT id_grado_dep, nom_grado_dep FROM grado_dependencia ORDER BY id_grado_dep")
+    grados_dep = cur.fetchall()
+
     cur.execute("SELECT id_ent, nom_ent FROM entidad_federativa ORDER BY nom_ent")
     entidades = cur.fetchall()
+    # Catálogos para los atributos de cada lengua (INALI)
+    cur.execute("SELECT id_mod_adc, categ_mod_adc FROM modo_adquisicion_lengua ORDER BY id_mod_adc")
+    modos_adquisicion = cur.fetchall()
+    cur.execute("SELECT id_niv_com, niv_prac_com FROM nivel_competencia_oral ORDER BY id_niv_com")
+    niveles_competencia = cur.fetchall()
 
     cur.close()
     conn.close()
     return render_template('nna_registro.html', sexos=sexos,
                            escolaridades=escolaridades, lenguas=lenguas,
-                           condiciones=condiciones, entidades=entidades)
+                           entidades=entidades,
+                           modos_adquisicion=modos_adquisicion,
+                           niveles_competencia=niveles_competencia,
+                           categorias=categorias, subcategorias=subcategorias,
+                           condiciones=condiciones,
+                           grados_dif=grados_dif, grados_dep=grados_dep)
 
 @app.route('/nna/detalle/<int:id_nna>')
 def detalle_nna(id_nna):
     conn = conectar_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    
     
     query = """
         SELECT nna.*, 
@@ -568,7 +606,6 @@ def detalle_nna(id_nna):
                a.nom_mun AS municipio, a.nom_col AS colonia, a.cp_asen AS cp,
                ent.nom_ent AS estado,
                ent_nac.nom_ent AS lugar_nacimiento_nombre,
-               l.variante_len AS lengua_nombre,
                c.nombre AS condicion_nombre,
                t.nombre AS tutor_nombre,
                t.apellido_p AS tutor_apellido_p,
@@ -584,8 +621,6 @@ def detalle_nna(id_nna):
         LEFT JOIN asentamiento a ON d.id_asen = a.id_asen
         LEFT JOIN entidad_federativa ent ON a.id_ent = ent.id_ent
         LEFT JOIN entidad_federativa ent_nac ON nna.lugar_nacimiento = ent_nac.id_ent
-        LEFT JOIN lenguaje_nna ln ON nna.id_nna = ln.id_nna
-        LEFT JOIN lengua l ON ln.id_len = l.id_len
         LEFT JOIN nna_condicion nc ON nna.id_nna = nc.id_nna
         LEFT JOIN condicion c ON nc.id_condicion = c.id_condicion
         LEFT JOIN nna_tutor nt ON nna.id_nna = nt.id_nna
@@ -595,11 +630,21 @@ def detalle_nna(id_nna):
     """
     cur.execute(query, (id_nna,))
     nna = cur.fetchone()
-    
+
+    # Traemos TODAS las lenguas del NNA (puede tener varias)
+    cur.execute("""
+        SELECT l.variante_len, l.familia_len, l.autodenom_len, ln.preferente
+        FROM lenguaje_nna ln
+        JOIN lengua l ON l.id_len = ln.id_len
+        WHERE ln.id_nna = %s
+        ORDER BY ln.preferente DESC, l.variante_len
+    """, (id_nna,))
+    lenguas_nna = cur.fetchall()
+
     cur.close()
     conn.close()
     
-    return render_template('detalle_nna.html', nna=nna)
+    return render_template('detalle_nna.html', nna=nna, lenguas_nna=lenguas_nna)
 
 @app.route('/tutor/registrar', methods=['GET', 'POST'])
 def registrar_tutor():
@@ -631,6 +676,37 @@ def registrar_tutor():
                 VALUES (%s, %s, %s, %s)
             """, (d['id_nna'], id_tutor, d.get('id_paren') or None, tutor_legal))
 
+            # --- LENGUAS DEL TUTOR (igual que el NNA) ---
+            lenguas_elegidas = request.form.getlist('lenguas')
+            len_preferente = d.get('lengua_preferente')
+            for id_len in lenguas_elegidas:
+                es_pref = (str(id_len) == str(len_preferente))
+                id_mod    = d.get(f'modo_{id_len}') or None
+                id_oral   = d.get(f'oral_{id_len}') or None
+                id_escrito = d.get(f'escrito_{id_len}') or None
+                cur.execute("""
+                    INSERT INTO lenguaje_tutor
+                        (id_tutor, id_len, preferente, id_mod_adc, id_niv_com, id_niv_escrito)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id_tutor, id_len) DO UPDATE SET
+                        preferente = EXCLUDED.preferente,
+                        id_mod_adc = EXCLUDED.id_mod_adc,
+                        id_niv_com = EXCLUDED.id_niv_com,
+                        id_niv_escrito = EXCLUDED.id_niv_escrito
+                """, (id_tutor, id_len, es_pref, id_mod, id_oral, id_escrito))
+
+            # --- DISCAPACIDADES DEL TUTOR (cascada con grados, igual que NNA) ---
+            for id_cond in request.form.getlist('condiciones'):
+                id_gdif = d.get(f'gradodif_{id_cond}') or None
+                id_gdep = d.get(f'gradodep_{id_cond}') or None
+                cur.execute("""
+                    INSERT INTO tutor_condicion (id_tutor, id_condicion, id_grado_dif, id_grado_dep)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (id_tutor, id_condicion) DO UPDATE SET
+                        id_grado_dif = EXCLUDED.id_grado_dif,
+                        id_grado_dep = EXCLUDED.id_grado_dep
+                """, (id_tutor, id_cond, id_gdif, id_gdep))
+
             conn.commit()
             flash("Tutor registrado y vinculado correctamente.", "success")
             return redirect(url_for('dashboard'))
@@ -650,10 +726,44 @@ def registrar_tutor():
     cur.execute("SELECT id_sexo, nom_sexo FROM sexo")
     sexos = cur.fetchall()
 
+    # Catálogos de LENGUA (igual que en el registro de NNA)
+    cur.execute("""
+        SELECT id_len, variante_len, familia_len, agrupacion_len, autodenom_len
+        FROM lengua ORDER BY variante_len
+    """)
+    lenguas = cur.fetchall()
+    cur.execute("SELECT id_mod_adc, categ_mod_adc FROM modo_adquisicion_lengua ORDER BY id_mod_adc")
+    modos_adquisicion = cur.fetchall()
+    cur.execute("SELECT id_niv_com, niv_prac_com FROM nivel_competencia_oral ORDER BY id_niv_com")
+    niveles_competencia = cur.fetchall()
+
+    # Catálogos de DISCAPACIDAD (cascada, igual que en NNA)
+    cur.execute("SELECT id_categoria, nombre FROM categoria ORDER BY nombre")
+    categorias = cur.fetchall()
+    cur.execute("SELECT id_subcategoria, nombre, id_categoria FROM subcategoria ORDER BY nombre")
+    subcategorias = cur.fetchall()
+    cur.execute("SELECT id_condicion, nombre, codigo_cif, id_subcategoria FROM condicion ORDER BY nombre")
+    condiciones = cur.fetchall()
+    cur.execute("""
+        SELECT id_grado_dif, nom_grado_dif, codigo_cif_dif, desc_cualitativa, rango_porcent
+        FROM grado_dificultad ORDER BY codigo_cif_dif
+    """)
+    grados_dif = cur.fetchall()
+    cur.execute("SELECT id_grado_dep, nom_grado_dep FROM grado_dependencia ORDER BY id_grado_dep")
+    grados_dep = cur.fetchall()
+
     cur.close()
     conn.close()
-    return render_template('tutor_registro.html', niños=niños, parentescos=parentescos, sexos=sexos)
+    return render_template('tutor_registro.html', niños=niños, parentescos=parentescos, sexos=sexos,
+                           lenguas=lenguas, modos_adquisicion=modos_adquisicion,
+                           niveles_competencia=niveles_competencia,
+                           categorias=categorias, subcategorias=subcategorias,
+                           condiciones=condiciones, grados_dif=grados_dif, grados_dep=grados_dep)
 
+
+# ----------------------------------------------------------------
+# MÓDULO 4: CASOS
+# ----------------------------------------------------------------
 
 @app.route('/casos')
 def listar_casos():
@@ -692,11 +802,9 @@ def registrar_caso():
     if request.method == 'POST':
         d = request.form
         try:
-            
             cur.execute("SELECT id_est_caso FROM estatus_caso WHERE nom_est_caso = 'Deteccion'")
             id_est = _primer_valor(cur.fetchone())
 
-            
             cur.execute("""
                 INSERT INTO caso (folio_caso, nom_caso, narracion, id_est_caso, id_equipo)
                 VALUES ('TEMP', %s, %s, %s, %s)
@@ -709,12 +817,10 @@ def registrar_caso():
             cur.execute("UPDATE caso SET folio_caso = %s WHERE id_caso = %s",
                         (folio, id_caso))
 
-            
             cur.execute("""
                 INSERT INTO caso_nna (id_caso, id_nna) VALUES (%s, %s)
             """, (id_caso, d['id_nna']))
 
-            
             for id_der in request.form.getlist('derechos'):
                 cur.execute("""
                     INSERT INTO caso_derecho (id_caso, id_nna, id_der)
@@ -722,7 +828,6 @@ def registrar_caso():
                     ON CONFLICT DO NOTHING
                 """, (id_caso, d['id_nna'], id_der))
 
-            
             cur.execute("SELECT rol_id FROM personal WHERE id = %s", (session['usuario_id'],))
             rol_usuario = _primer_valor(cur.fetchone())
             cur.execute("""
@@ -742,7 +847,6 @@ def registrar_caso():
             cur.close()
             conn.close()
 
-    
     cur.execute("""
         SELECT id_nna, folio_nna, nombre, apellido_p, apellido_m
         FROM nna ORDER BY nombre, apellido_p
@@ -761,13 +865,11 @@ def registrar_caso():
 
 @app.route('/caso/<int:id_caso>')
 def detalle_caso(id_caso):
-    """EXPEDIENTE del caso: toda la información y acciones en una pantalla."""
     if 'usuario_id' not in session: return redirect(url_for('index'))
 
     conn = conectar_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    
     cur.execute("""
         SELECT c.*, ec.nom_est_caso AS estatus, eq.nom_equipo
         FROM caso c
@@ -780,7 +882,6 @@ def detalle_caso(id_caso):
         cur.close(); conn.close()
         return "Caso no encontrado", 404
 
-    
     cur.execute("""
         SELECT n.id_nna, n.folio_nna, n.nombre, n.apellido_p, n.apellido_m,
                n.fecha_nacimiento, s.nom_sexo AS sexo, cn.fecha_incorp
@@ -792,7 +893,6 @@ def detalle_caso(id_caso):
     """, (id_caso,))
     nna_caso = cur.fetchall()
 
-    
     cur.execute("""
         SELECT cd.*, der.nom_der, n.nombre AS nna_nombre, n.apellido_p AS nna_apellido
         FROM caso_derecho cd
@@ -803,7 +903,6 @@ def detalle_caso(id_caso):
     """, (id_caso,))
     derechos_caso = cur.fetchall()
 
-    
     cur.execute("""
         SELECT ac.*, p.nombre, p.apellido_p, r.nombre_rol
         FROM asignacion_caso ac
@@ -814,7 +913,6 @@ def detalle_caso(id_caso):
     """, (id_caso,))
     asignados = cur.fetchall()
 
-    
     cur.execute("""
         SELECT sg.*, p.nombre, p.apellido_p, r.nombre_rol
         FROM seguimiento sg
@@ -825,7 +923,6 @@ def detalle_caso(id_caso):
     """, (id_caso,))
     seguimientos = cur.fetchall()
 
-    
     cur.execute("""
         SELECT id_nna, folio_nna, nombre, apellido_p FROM nna
         WHERE id_nna NOT IN (SELECT id_nna FROM caso_nna WHERE id_caso = %s)
@@ -897,7 +994,6 @@ def caso_registrar_derecho(id_caso):
 
 @app.route('/caso/<int:id_caso>/restituir/<int:id_nna>/<int:id_der>')
 def caso_restituir_derecho(id_caso, id_nna, id_der):
-    """Marca un derecho como restituido con la fecha de hoy."""
     if 'usuario_id' not in session: return redirect(url_for('index'))
     conn = conectar_db()
     cur = conn.cursor()
@@ -914,7 +1010,6 @@ def caso_restituir_derecho(id_caso, id_nna, id_der):
 
 @app.route('/caso/<int:id_caso>/asignar', methods=['POST'])
 def caso_asignar_personal(id_caso):
-    """Asigna personal al caso con su rol actual (relación ternaria)."""
     if 'usuario_id' not in session: return redirect(url_for('index'))
     conn = conectar_db()
     cur = conn.cursor()
@@ -938,8 +1033,6 @@ def caso_asignar_personal(id_caso):
 
 @app.route('/caso/<int:id_caso>/seguimiento', methods=['POST'])
 def caso_agregar_seguimiento(id_caso):
-    """Agrega una nota de seguimiento firmada por el usuario en sesión.
-    El seguimiento legal/psicológico se distingue por el rol de quien firma."""
     if 'usuario_id' not in session: return redirect(url_for('index'))
     conn = conectar_db()
     cur = conn.cursor()
@@ -960,8 +1053,6 @@ def caso_agregar_seguimiento(id_caso):
 
 @app.route('/caso/<int:id_caso>/estatus', methods=['POST'])
 def caso_cambiar_estatus(id_caso):
-    """Cambia el estatus del caso. Si pasa a 'Cerrado' guarda la fecha de
-    cierre; si se reabre, la limpia."""
     if 'usuario_id' not in session: return redirect(url_for('index'))
     conn = conectar_db()
     cur = conn.cursor()
@@ -990,6 +1081,9 @@ def caso_cambiar_estatus(id_caso):
     return redirect(url_for('detalle_caso', id_caso=id_caso))
 
 
+# ----------------------------------------------------------------
+# PANTALLAS COMPLEMENTARIAS
+# ----------------------------------------------------------------
 
 @app.route('/pantalla_personas')
 def pantalla_personas():
@@ -1024,11 +1118,10 @@ CATALOGOS = {
     'parentesco':     {'tabla': 'parentesco',     'id': 'id_paren',     'campos': [('nom_paren', 'Parentesco')], 'titulo': 'Parentesco'},
     'tipo_contacto':  {'tabla': 'tipo_contacto',  'id': 'id_tipo_con',  'campos': [('nom_tipo_con', 'Tipo de contacto')], 'titulo': 'Tipos de contacto'},
     'derecho':        {'tabla': 'derecho',        'id': 'id_der',       'campos': [('nom_der', 'Derecho')], 'titulo': 'Derechos (LGDNNA)'},
-    'tipo_apoyo':     {'tabla': 'tipo_apoyo',     'id': 'id_tipo_apo',  'campos': [('nom_tipo_apo', 'Tipo de apoyo')], 'titulo': 'Tipos de apoyo'},
     'tipo_consulta':  {'tabla': 'tipo_consulta',  'id': 'id_tipo_consul', 'campos': [('nom_tipo_consul', 'Tipo de consulta')], 'titulo': 'Tipos de consulta'},
     'metodo_pago':    {'tabla': 'metodo_pago',    'id': 'id_met_pago',  'campos': [('nom_met_pago', 'Método de pago')], 'titulo': 'Métodos de pago'},
     'enfermedad':     {'tabla': 'enfermedad',     'id': 'id_enf',       'campos': [('nombre', 'Enfermedad'), ('codigo_cie', 'Código CIE')], 'titulo': 'Enfermedades'},
-    'lengua':         {'tabla': 'lengua',         'id': 'id_len',       'campos': [('variante_len', 'Variante'), ('familia_len', 'Familia'), ('autodenom_len', 'Autodenominación')], 'titulo': 'Lenguas'},
+    'lengua':         {'tabla': 'lengua',         'id': 'id_len',       'campos': [('variante_len', 'Variante'), ('familia_len', 'Familia'), ('agrupacion_len', 'Agrupación'), ('autodenom_len', 'Autodenominación')], 'titulo': 'Lenguas'},
 }
 
 
@@ -1092,7 +1185,9 @@ def agregar_valor_catalogo(cat):
 
     return redirect(url_for('administrar_catalogos', cat=cat))
 
-
+# ----------------------------------------------------------------
+# MÓDULO 6: CONSULTAS
+# ----------------------------------------------------------------
 
 @app.route('/consultas')
 def listar_consultas():
@@ -1149,7 +1244,6 @@ def registrar_consulta():
             cur.close()
             conn.close()
 
-    
     cur.execute("""
         SELECT id_nna, folio_nna, nombre, apellido_p, apellido_m
         FROM nna ORDER BY nombre, apellido_p
@@ -1157,7 +1251,6 @@ def registrar_consulta():
     nna_lista = cur.fetchall()
     cur.execute("SELECT id_tipo_consul, nom_tipo_consul FROM tipo_consulta ORDER BY id_tipo_consul")
     tipos = cur.fetchall()
-    
     cur.execute("""
         SELECT p.id, p.nombre, p.apellido_p, r.nombre_rol
         FROM personal p JOIN roles r ON r.id = p.rol_id
@@ -1173,90 +1266,9 @@ def registrar_consulta():
                            nna_lista=nna_lista, tipos=tipos,
                            profesionales=profesionales)
 
-
-
-
-@app.route('/apoyos')
-def listar_apoyos():
-    if 'usuario_id' not in session: return redirect(url_for('index'))
-
-    conn = conectar_db()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("""
-        SELECT a.*,
-               ta.nom_tipo_apo AS tipo,
-               c.folio_caso,
-               n.folio_nna, n.nombre AS nna_nombre, n.apellido_p AS nna_apellido,
-               p.nombre AS aut_nombre, p.apellido_p AS aut_apellido,
-               -- Cuánto de este apoyo ya está cubierto por donaciones
-               COALESCE((SELECT SUM(ad.monto_aplicado)
-                         FROM apoyo_donacion ad WHERE ad.id_apo = a.id_apo), 0) AS cubierto
-        FROM apoyo a
-        JOIN tipo_apoyo ta ON ta.id_tipo_apo = a.id_tipo_apo
-        JOIN caso c        ON c.id_caso = a.id_caso
-        JOIN nna n         ON n.id_nna = a.id_nna
-        JOIN personal p    ON p.id = a.id_autoriza
-        ORDER BY a.fecha_apo DESC
-    """)
-    apoyos = cur.fetchall()
-    cur.close()
-    conn.close()
-    return render_template('apoyos_listado.html',
-                           apoyos=apoyos, nombre=session['nombre'])
-
-
-@app.route('/apoyos/registrar', methods=['GET', 'POST'])
-def registrar_apoyo():
-    if 'usuario_id' not in session: return redirect(url_for('index'))
-
-    conn = conectar_db()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-
-    if request.method == 'POST':
-        d = request.form
-        try:
-            cur.execute("""
-                INSERT INTO apoyo (id_caso, id_nna, id_tipo_apo, descripcion,
-                                   monto, id_autoriza)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, (
-                d['id_caso'], d['id_nna'], d['id_tipo_apo'],
-                d.get('descripcion') or None,
-                d.get('monto') or None,
-                session['usuario_id']  
-            ))
-            conn.commit()
-            flash("Apoyo registrado con éxito", "success")
-            return redirect(url_for('listar_apoyos'))
-        except Exception as e:
-            conn.rollback()
-            print(f"Error al registrar apoyo: {e}")
-            flash(f"Error al registrar apoyo: {e}", "error")
-            return redirect('/apoyos/registrar')
-        finally:
-            cur.close()
-            conn.close()
-
-    
-    cur.execute("""
-        SELECT cn.id_caso, cn.id_nna,
-               c.folio_caso, c.nom_caso,
-               n.folio_nna, n.nombre, n.apellido_p
-        FROM caso_nna cn
-        JOIN caso c ON c.id_caso = cn.id_caso
-        JOIN nna n  ON n.id_nna = cn.id_nna
-        ORDER BY c.id_caso DESC, n.nombre
-    """)
-    pares_caso_nna = cur.fetchall()
-    cur.execute("SELECT id_tipo_apo, nom_tipo_apo FROM tipo_apoyo ORDER BY id_tipo_apo")
-    tipos = cur.fetchall()
-
-    cur.close()
-    conn.close()
-    return render_template('apoyo_registro.html',
-                           pares_caso_nna=pares_caso_nna, tipos=tipos)
-
-
+# ----------------------------------------------------------------
+# MÓDULO 8: EQUIPOS MULTIDISCIPLINARIOS
+# ----------------------------------------------------------------
 
 @app.route('/equipos')
 def listar_equipos():
@@ -1266,10 +1278,8 @@ def listar_equipos():
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("""
         SELECT e.*,
-               -- Miembros activos (los que no tienen fecha_baja)
                (SELECT COUNT(*) FROM equipo_miembro em
                  WHERE em.id_equipo = e.id_equipo AND em.fecha_baja IS NULL) AS num_activos,
-               -- Casos que atiende este equipo
                (SELECT COUNT(*) FROM caso c
                  WHERE c.id_equipo = e.id_equipo) AS num_casos
         FROM equipo_multidisciplinario e
@@ -1311,21 +1321,17 @@ def crear_equipo():
 
 @app.route('/equipo/<int:id_equipo>')
 def detalle_equipo(id_equipo):
-    """Detalle de UN equipo: sus miembros activos, su historial de
-    bajas, y los casos que atiende."""
     if 'usuario_id' not in session: return redirect(url_for('index'))
 
     conn = conectar_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    
     cur.execute("SELECT * FROM equipo_multidisciplinario WHERE id_equipo = %s", (id_equipo,))
     equipo = cur.fetchone()
     if not equipo:
         cur.close(); conn.close()
         return "Equipo no encontrado", 404
 
-    
     cur.execute("""
         SELECT em.*, p.nombre, p.apellido_p, p.apellido_m, r.nombre_rol
         FROM equipo_miembro em
@@ -1336,7 +1342,6 @@ def detalle_equipo(id_equipo):
     """, (id_equipo,))
     miembros_activos = cur.fetchall()
 
-    
     cur.execute("""
         SELECT em.*, p.nombre, p.apellido_p, r.nombre_rol
         FROM equipo_miembro em
@@ -1347,7 +1352,6 @@ def detalle_equipo(id_equipo):
     """, (id_equipo,))
     historial = cur.fetchall()
 
-    
     cur.execute("""
         SELECT c.id_caso, c.folio_caso, c.nom_caso, ec.nom_est_caso AS estatus
         FROM caso c
@@ -1356,7 +1360,6 @@ def detalle_equipo(id_equipo):
         ORDER BY c.id_caso DESC
     """, (id_equipo,))
     casos = cur.fetchall()
-
 
     cur.execute("""
         SELECT p.id, p.nombre, p.apellido_p, r.nombre_rol
@@ -1384,8 +1387,6 @@ def detalle_equipo(id_equipo):
 
 @app.route('/equipo/<int:id_equipo>/agregar_miembro', methods=['POST'])
 def equipo_agregar_miembro(id_equipo):
-    """Da de alta a un miembro: inserta una fila nueva con fecha_alta=hoy
-    y fecha_baja=NULL. Un trabajador puede estar en varios equipos."""
     if 'usuario_id' not in session: return redirect(url_for('index'))
 
     conn = conectar_db()
@@ -1409,9 +1410,6 @@ def equipo_agregar_miembro(id_equipo):
 
 @app.route('/equipo/<int:id_equipo>/dar_baja/<int:id_personal>/<fecha_alta>')
 def equipo_dar_baja(id_equipo, id_personal, fecha_alta):
-    """Da de baja a un miembro: NO borra la fila, solo le pone
-    fecha_baja=hoy. Conserva el historial. Necesitamos fecha_alta
-    porque es parte de la clave primaria de equipo_miembro."""
     if 'usuario_id' not in session: return redirect(url_for('index'))
 
     conn = conectar_db()
@@ -1434,14 +1432,16 @@ def equipo_dar_baja(id_equipo, id_personal, fecha_alta):
         conn.close()
     return redirect(url_for('detalle_equipo', id_equipo=id_equipo))
 
+# ----------------------------------------------------------------
+# EDITAR NNA (con múltiples lenguas y preferente)
+# ----------------------------------------------------------------
+
 @app.route('/nna/editar/<int:id_nna>', methods=['GET', 'POST'])
 def editar_nna(id_nna):
     conn = conectar_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
     if request.method == 'POST':
-        
-        
         folio_nna = request.form.get('folio_nna')
         nombre = request.form.get('nombre')
         apellido_p = request.form.get('apellido_p') or None
@@ -1452,7 +1452,6 @@ def editar_nna(id_nna):
         id_esc = request.form.get('id_esc') or None
         lugar_nacimiento = request.form.get('lugar_nacimiento') or None
         
-        
         calle = request.form.get('calle')
         numero_ext = request.form.get('numero_ext')
         numero_int = request.form.get('numero_int') or None
@@ -1462,49 +1461,38 @@ def editar_nna(id_nna):
         cp_asen = request.form.get('cp_asen') or None
         id_ent_domicilio = request.form.get('id_ent_domicilio') or None
         
-        
-        id_len = request.form.get('id_len')
         id_condicion = request.form.get('id_condicion')
 
         try:
-            
             cur.execute("SELECT id_direccion FROM nna WHERE id_nna = %s", (id_nna,))
             res_nna = cur.fetchone()
             id_direccion = res_nna['id_direccion'] if res_nna else None
 
             if id_direccion:
-                
                 cur.execute("SELECT id_asen FROM direccion WHERE id_direccion = %s", (id_direccion,))
                 id_asen = cur.fetchone()['id_asen']
-                
-                
                 cur.execute("""
                     UPDATE asentamiento 
                     SET nom_mun = %s, nom_col = %s, cp_asen = %s, id_ent = %s 
                     WHERE id_asen = %s
                 """, (nom_mun, nom_col, cp_asen, id_ent_domicilio, id_asen))
-                
-                
                 cur.execute("""
                     UPDATE direccion 
                     SET calle = %s, numero_ext = %s, numero_int = %s, referencias = %s 
                     WHERE id_direccion = %s
                 """, (calle, numero_ext, numero_int, referencias, id_direccion))
             else:
-                
                 cur.execute("""
                     INSERT INTO asentamiento (nom_mun, nom_col, cp_asen, id_ent) 
                     VALUES (%s, %s, %s, %s) RETURNING id_asen
                 """, (nom_mun, nom_col, cp_asen, id_ent_domicilio))
                 id_asen = cur.fetchone()['id_asen']
-                
                 cur.execute("""
                     INSERT INTO direccion (calle, numero_ext, numero_int, referencias, id_asen) 
                     VALUES (%s, %s, %s, %s, %s) RETURNING id_direccion
                 """, (calle, numero_ext, numero_int, referencias, id_asen))
                 id_direccion = cur.fetchone()['id_direccion']
 
-            
             cur.execute("""
                 UPDATE nna 
                 SET folio_nna = %s, nombre = %s, apellido_p = %s, apellido_m = %s, 
@@ -1514,53 +1502,60 @@ def editar_nna(id_nna):
             """, (folio_nna, nombre, apellido_p, apellido_m, fecha_nacimiento, curp, 
                   id_sexo, id_esc, id_direccion, lugar_nacimiento, id_nna))
 
-            
+            # --- LENGUAS MÚLTIPLES CON PREFERENTE ---
+            # Borramos las anteriores y reinsertamos las elegidas.
             cur.execute("DELETE FROM lenguaje_nna WHERE id_nna = %s", (id_nna,))
-            if id_len:
-                cur.execute("INSERT INTO lenguaje_nna (id_nna, id_len) VALUES (%s, %s)", (id_nna, id_len))
+            lenguas_elegidas = request.form.getlist('lenguas')
+            len_preferente = request.form.get('lengua_preferente')
+            for id_len in lenguas_elegidas:
+                es_pref = (str(id_len) == str(len_preferente))
+                cur.execute("""
+                    INSERT INTO lenguaje_nna (id_nna, id_len, preferente)
+                    VALUES (%s, %s, %s)
+                """, (id_nna, id_len, es_pref))
 
-            
             cur.execute("DELETE FROM nna_condicion WHERE id_nna = %s", (id_nna,))
             if id_condicion:
                 cur.execute("INSERT INTO nna_condicion (id_nna, id_condicion) VALUES (%s, %s)", (id_nna, id_condicion))
 
-            
             conn.commit()
             return redirect(url_for('detalle_nna', id_nna=id_nna))
 
         except Exception as e:
             conn.rollback()
             print(f"Error crítico detectado en la actualización: {e}")
-            
+            flash(f"Error al actualizar: {e}", "error")
 
-    
     cur.execute("""
         SELECT nna.*, 
                d.calle, d.numero_ext, d.numero_int, d.referencias,
                a.nom_mun, a.nom_col, a.cp_asen, a.id_ent AS id_ent_domicilio,
-               ln.id_len, nc.id_condicion
+               nc.id_condicion
         FROM nna nna
         LEFT JOIN direccion d ON nna.id_direccion = d.id_direccion
         LEFT JOIN asentamiento a ON d.id_asen = a.id_asen
-        LEFT JOIN lenguaje_nna ln ON nna.id_nna = ln.id_nna
         LEFT JOIN nna_condicion nc ON nna.id_nna = nc.id_nna
         WHERE nna.id_nna = %s
     """, (id_nna,))
     nna = cur.fetchone()
 
-    
+    # Lenguas que YA tiene el NNA (para marcarlas en el formulario)
+    cur.execute("""
+        SELECT id_len, preferente FROM lenguaje_nna WHERE id_nna = %s
+    """, (id_nna,))
+    lenguas_actuales = {row['id_len']: row['preferente'] for row in cur.fetchall()}
+
     cur.execute("SELECT id_sexo, nom_sexo FROM sexo ORDER BY nom_sexo")
     cat_sexo = cur.fetchall()
-
     cur.execute("SELECT id_esc, nom_esc FROM escolaridad")
     cat_escolaridad = cur.fetchall()
-
     cur.execute("SELECT id_ent, nom_ent FROM entidad_federativa ORDER BY nom_ent")
     cat_estados = cur.fetchall()
-
-    cur.execute("SELECT id_len, variante_len FROM lengua ORDER BY variante_len")
+    cur.execute("""
+        SELECT id_len, variante_len, familia_len, agrupacion_len, autodenom_len
+        FROM lengua ORDER BY variante_len
+    """)
     cat_lenguas = cur.fetchall()
-
     cur.execute("SELECT id_condicion, nombre FROM condicion ORDER BY nombre")
     cat_condiciones = cur.fetchall()
 
@@ -1569,7 +1564,118 @@ def editar_nna(id_nna):
 
     return render_template('editar_nna.html', nna=nna, cat_sexo=cat_sexo, 
                            cat_escolaridad=cat_escolaridad, cat_estados=cat_estados, 
-                           cat_lenguas=cat_lenguas, cat_condiciones=cat_condiciones)
+                           cat_lenguas=cat_lenguas, cat_condiciones=cat_condiciones,
+                           lenguas_actuales=lenguas_actuales)
+
+# ----------------------------------------------------------------
+# MÓDULO: DISCAPACIDADES (CIF)
+# ----------------------------------------------------------------
+
+@app.route('/discapacidades')
+def listar_discapacidades():
+    """Lista las 100 discapacidades del catálogo CIF con su jerarquía."""
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("""
+        SELECT c.id_condicion, c.nombre, c.codigo_cif,
+               ca.nombre AS categoria, sc.nombre AS subcategoria,
+               gd.nom_grado_dif, gd.codigo_cif_dif,
+               gp.nom_grado_dep
+        FROM condicion c
+        JOIN subcategoria sc ON sc.id_subcategoria = c.id_subcategoria
+        JOIN categoria ca    ON ca.id_categoria = sc.id_categoria
+        LEFT JOIN grado_dificultad gd  ON gd.id_grado_dif = c.id_grado_dif
+        LEFT JOIN grado_dependencia gp ON gp.id_grado_dep = c.id_grado_dep
+        ORDER BY ca.nombre, sc.nombre, c.nombre
+    """)
+    discapacidades = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('discapacidades_listado.html',
+                           discapacidades=discapacidades, nombre=session['nombre'])
+
+
+@app.route('/discapacidad/<int:id_condicion>', methods=['GET', 'POST'])
+def detalle_discapacidad(id_condicion):
+    """Ver / editar una discapacidad: grados + funciones + productos."""
+    if 'usuario_id' not in session: return redirect(url_for('index'))
+
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    if request.method == 'POST':
+        try:
+            # Grados (un valor cada uno)
+            id_grado_dif = request.form.get('id_grado_dif') or None
+            id_grado_dep = request.form.get('id_grado_dep') or None
+            cur.execute("""
+                UPDATE condicion SET id_grado_dif = %s, id_grado_dep = %s
+                WHERE id_condicion = %s
+            """, (id_grado_dif, id_grado_dep, id_condicion))
+
+            # Funciones afectadas (N:M): borrar y reinsertar las marcadas
+            cur.execute("DELETE FROM condicion_funcion WHERE id_condicion = %s", (id_condicion,))
+            for id_func in request.form.getlist('funciones'):
+                cur.execute("""
+                    INSERT INTO condicion_funcion (id_condicion, id_funcion)
+                    VALUES (%s, %s) ON CONFLICT DO NOTHING
+                """, (id_condicion, id_func))
+
+            # Productos de apoyo (N:M)
+            cur.execute("DELETE FROM condicion_producto WHERE id_condicion = %s", (id_condicion,))
+            for id_prod in request.form.getlist('productos'):
+                cur.execute("""
+                    INSERT INTO condicion_producto (id_condicion, id_producto)
+                    VALUES (%s, %s) ON CONFLICT DO NOTHING
+                """, (id_condicion, id_prod))
+
+            conn.commit()
+            flash("Discapacidad actualizada correctamente", "success")
+            return redirect(url_for('detalle_discapacidad', id_condicion=id_condicion))
+        except Exception as e:
+            conn.rollback()
+            print(f"Error al actualizar discapacidad: {e}")
+            flash(f"Error al actualizar: {e}", "error")
+
+    # --- Datos de la discapacidad ---
+    cur.execute("""
+        SELECT c.*, ca.nombre AS categoria, sc.nombre AS subcategoria
+        FROM condicion c
+        JOIN subcategoria sc ON sc.id_subcategoria = c.id_subcategoria
+        JOIN categoria ca    ON ca.id_categoria = sc.id_categoria
+        WHERE c.id_condicion = %s
+    """, (id_condicion,))
+    disc = cur.fetchone()
+    if not disc:
+        cur.close(); conn.close()
+        return "Discapacidad no encontrada", 404
+
+    # Catálogos para los menús
+    cur.execute("SELECT id_grado_dif, nom_grado_dif, codigo_cif_dif FROM grado_dificultad ORDER BY codigo_cif_dif")
+    grados_dif = cur.fetchall()
+    cur.execute("SELECT id_grado_dep, nom_grado_dep FROM grado_dependencia ORDER BY id_grado_dep")
+    grados_dep = cur.fetchall()
+    cur.execute("SELECT id_funcion, nom_funcion, codigo_cif FROM funcion_corporal ORDER BY nom_funcion")
+    funciones = cur.fetchall()
+    cur.execute("SELECT id_producto, nom_producto FROM producto_apoyo ORDER BY nom_producto")
+    productos = cur.fetchall()
+
+    # Lo que ya tiene marcado (para precargar los checkboxes)
+    cur.execute("SELECT id_funcion FROM condicion_funcion WHERE id_condicion = %s", (id_condicion,))
+    func_marcadas = [r['id_funcion'] for r in cur.fetchall()]
+    cur.execute("SELECT id_producto FROM condicion_producto WHERE id_condicion = %s", (id_condicion,))
+    prod_marcados = [r['id_producto'] for r in cur.fetchall()]
+
+    cur.close()
+    conn.close()
+    return render_template('discapacidad_detalle.html',
+                           disc=disc, grados_dif=grados_dif, grados_dep=grados_dep,
+                           funciones=funciones, productos=productos,
+                           func_marcadas=func_marcadas, prod_marcados=prod_marcados,
+                           nombre=session['nombre'])
+
 
 # Arranque del servidor Flask al final de todas las definiciones
 if __name__ == '__main__':

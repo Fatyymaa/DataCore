@@ -5,12 +5,28 @@
     <title>DATACORE | REGISTRO NNA</title>
     <style>
         body { font-family: monospace; background: #f4f4f4; display: flex; justify-content: center; align-items: flex-start; height: auto; padding: 40px 0; margin: 0; }
-        .card { background: white; padding: 30px; border: 2px solid #000; box-shadow: 10px 10px 0px #000; width: 450px; }
+        .card { background: white; padding: 30px; border: 2px solid #000; box-shadow: 10px 10px 0px #000; width: 560px; }
         input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #000; box-sizing: border-box; font-family: monospace; }
         button { width: 100%; padding: 10px; background: #000; color: #fff; cursor: pointer; border: none; font-weight: bold; font-family: monospace; margin-top: 15px; }
         button:hover { background: #333; }
         hr { border: 0; border-top: 2px dashed #000; margin: 20px 0; }
         .seccion-titulo { font-weight: bold; text-transform: uppercase; margin-top: 15px; display: block; background: #000; color: #fff; padding: 5px; text-align: center; }
+        .lengua-fila { display: flex; gap: 8px; align-items: center; }
+        .lengua-fila select { flex: 1; margin: 0; }
+        .btn-mini { width: auto; padding: 10px 12px; margin: 0; font-size: 12px; }
+        .btn-add { background: #1b5e20; }
+        .btn-add:hover { background: #2e7d32; }
+        #lista-lenguas { list-style: none; padding: 0; margin: 12px 0; }
+        .lengua-card { background: #f7f7f7; border: 2px solid #000; padding: 12px; margin-bottom: 10px; }
+        .lengua-card .encabezado { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .lengua-card .encabezado .nombre { flex: 1; font-weight: bold; font-size: 14px; }
+        .lengua-card small { color: #555; font-weight: normal; }
+        .lengua-card .atributos { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+        .lengua-card .atributos label { font-size: 10px; font-weight: bold; display: block; }
+        .lengua-card .atributos select { margin: 2px 0; padding: 6px; font-size: 12px; }
+        .btn-quitar { background: #b22; color: #fff; border: none; padding: 4px 10px; cursor: pointer; font-family: monospace; font-size: 11px; width: auto; margin: 0; }
+        .pref-label { font-size: 11px; display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+        .aviso { font-size: 11px; color: #666; margin: 4px 0; }
     </style>
 </head>
 <body>
@@ -18,7 +34,7 @@
         <h2>REGISTRO DE NNA</h2>
         <p style="margin-top: -10px; font-size: 11px; color: #666;">Modulo 2: Ninos, Ninas y Adolescentes</p>
 
-        <form action="/nna/registrar" method="POST">
+        <form action="/nna/registrar" method="POST" id="form-nna">
 
             <span class="seccion-titulo">Datos Identificadores</span>
 
@@ -34,18 +50,12 @@
             <label>Apellido Materno:</label>
             <input type="text" name="apellido_m" placeholder="Segundo apellido" required>
 
-            <!-- FIX: la CURP ya no es obligatoria (muchos NNA llegan sin ella).
-                 Si se captura, el backend valida su formato. -->
             <label>CURP (Opcional):</label>
             <input type="text" name="curp" placeholder="CURP" maxlength="18">
 
             <label>Fecha de Nacimiento:</label>
             <input type="date" name="fecha_nacimiento" required>
 
-            <!-- FIX: antes era un input de texto libre, pero la columna
-                 lugar_nacimiento de la tabla nna es un numero (FK a
-                 entidad_federativa). Ahora es un select con el catalogo
-                 que ya manda la ruta de Python. -->
             <label>Lugar de Nacimiento (Estado):</label>
             <select name="lugar_nacimiento">
                 <option value="">-- No especificado --</option>
@@ -65,31 +75,82 @@
             <label>Nivel de Escolaridad:</label>
             <select name="id_esc" required>
                 <option value="" disabled selected>-- Selecciona escolaridad --</option>
-                <!-- FIX: habia una etiqueta </option> suelta aqui -->
                 {% for e in escolaridades %}
                     <option value="{{ e.id_esc }}">{{ e.nom_esc }}</option>
                 {% endfor %}
             </select>
 
             <hr>
-            <span class="seccion-titulo">Condiciones y Lengua</span>
+            <span class="seccion-titulo">Lenguas del NNA (INALI)</span>
+            <p class="aviso">Agrega una o varias lenguas. Por cada una indica el modo de adquisicion y el nivel oral/escrito. Marca con el circulo cual es la PREFERENTE.</p>
 
-            <label>Lengua/Variante Linguistica:</label>
-            <select name="id_len">
-                <option value="">Ninguna / No especifica</option>
-                {% for l in lenguas %}
-                    <option value="{{ l.id_len }}">{{ l.variante_len }}</option>
+            <div class="lengua-fila">
+                <select id="select-lengua">
+                    <option value="">-- Selecciona una lengua para agregar --</option>
+                    {% for l in lenguas %}
+                        <option value="{{ l.id_len }}"
+                                data-variante="{{ l.variante_len }}"
+                                data-familia="{{ l.familia_len or '' }}"
+                                data-agrupacion="{{ l.agrupacion_len or '' }}"
+                                data-autodenom="{{ l.autodenom_len or '' }}">
+                            {{ l.variante_len }}{% if l.familia_len %} ({{ l.familia_len }}){% endif %}
+                        </option>
+                    {% endfor %}
+                </select>
+                <button type="button" class="btn-mini btn-add" onclick="agregarLengua()">+ AGREGAR</button>
+            </div>
+
+            <ul id="lista-lenguas"></ul>
+
+            <hr>
+            <span class="seccion-titulo">Discapacidades / Condiciones (CIF)</span>
+            <p class="aviso">Selecciona Categoria, luego Subcategoria, luego la Condicion. Elige el grado de dificultad y dependencia, y agrega. Puedes registrar varias.</p>
+
+            <label>Categoria:</label>
+            <select id="cas-categoria" onchange="cargarSubcategorias()">
+                <option value="">-- Selecciona categoria --</option>
+                {% for cat in categorias %}
+                    <option value="{{ cat.id_categoria }}">{{ cat.nombre }}</option>
                 {% endfor %}
             </select>
 
-            <label>Condicion Inicial:</label>
-            <select name="id_condicion">
-                <option value="">Ninguna / Sin diagnostico actual</option>
-                {% for c in condiciones %}
-                    <!-- Mostramos la categoria para que sea mas claro -->
-                    <option value="{{ c.id_condicion }}">{{ c.categoria }} | {{ c.nombre }}</option>
+            <label>Subcategoria:</label>
+            <select id="cas-subcategoria" onchange="cargarCondiciones()" disabled>
+                <option value="">-- Primero elige categoria --</option>
+            </select>
+
+            <label>Condicion (discapacidad):</label>
+            <select id="cas-condicion" onchange="mostrarCodigoCondicion()" disabled>
+                <option value="">-- Primero elige subcategoria --</option>
+            </select>
+            <!-- Codigo CIF de la condicion elegida (solo se muestra) -->
+            <div id="codigo-condicion" style="font-size:12px; color:#444; margin:-5px 0 10px 0; min-height:16px;"></div>
+
+            <label>Grado de dificultad:</label>
+            <select id="cas-gradodif" onchange="mostrarDescGrado()">
+                <option value="">-- Sin especificar --</option>
+                {% for g in grados_dif %}
+                    <option value="{{ g.id_grado_dif }}"
+                            data-desc="{{ g.desc_cualitativa or '' }}"
+                            data-rango="{{ g.rango_porcent or '' }}">
+                        {{ g.nom_grado_dif }} ({{ g.codigo_cif_dif }})
+                    </option>
                 {% endfor %}
             </select>
+            <!-- Descripcion cualitativa del grado elegido (CIF) -->
+            <div id="desc-grado" style="font-size:12px; color:#1b5e20; background:#f0f7f0; border-left:3px solid #1b5e20; padding:6px 10px; margin:-5px 0 12px 0; min-height:16px; display:none;"></div>
+
+            <label>Grado de dependencia:</label>
+            <select id="cas-gradodep">
+                <option value="">-- Sin especificar --</option>
+                {% for g in grados_dep %}
+                    <option value="{{ g.id_grado_dep }}">{{ g.nom_grado_dep }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="button" class="btn-mini btn-add" style="width:100%; margin-top:10px;" onclick="agregarCondicion()">+ AGREGAR DISCAPACIDAD</button>
+
+            <ul id="lista-condiciones"></ul>
 
             <hr>
             <span class="seccion-titulo">Direccion o Residencia Actual</span>
@@ -119,6 +180,343 @@
         </form>
         <p style="text-align: center;"><a href="/dashboard" style="color:#000;">Volver al Dashboard</a></p>
     </div>
+
+    <!-- Catalogos para los menus de cada lengua (los inyecta Jinja una vez) -->
+    <script>
+        // Opciones de modo de adquisicion (materna/segunda/escolar)
+        const MODOS = [
+            {% for m in modos_adquisicion %}
+            { id: "{{ m.id_mod_adc }}", nombre: "{{ m.categ_mod_adc }}" },
+            {% endfor %}
+        ];
+        // Opciones de nivel (Nativo/Avanzado/Intermedio/Basico) - sirve para oral Y escrito
+        const NIVELES = [
+            {% for n in niveles_competencia %}
+            { id: "{{ n.id_niv_com }}", nombre: "{{ n.niv_prac_com }}" },
+            {% endfor %}
+        ];
+
+        let lenguasAgregadas = [];
+
+        function opcionesHTML(lista, placeholder) {
+            let html = '<option value="">' + placeholder + '</option>';
+            lista.forEach(o => {
+                html += '<option value="' + o.id + '">' + o.nombre + '</option>';
+            });
+            return html;
+        }
+
+        function agregarLengua() {
+            const select = document.getElementById('select-lengua');
+            const id = select.value;
+            if (!id) { alert('Elige una lengua primero.'); return; }
+            if (lenguasAgregadas.some(l => l.id === id)) {
+                alert('Esa lengua ya fue agregada.');
+                return;
+            }
+            const opt = select.options[select.selectedIndex];
+            lenguasAgregadas.push({
+                id: id,
+                variante: opt.dataset.variante,
+                familia: opt.dataset.familia,
+                autodenom: opt.dataset.autodenom
+            });
+            if (lenguasAgregadas.length === 1) {
+                window.lenguaPreferente = id;
+            }
+            select.value = '';
+            renderizarLenguas();
+        }
+
+        function quitarLengua(id) {
+            lenguasAgregadas = lenguasAgregadas.filter(l => l.id !== id);
+            if (window.lenguaPreferente === id) {
+                window.lenguaPreferente = lenguasAgregadas.length ? lenguasAgregadas[0].id : null;
+            }
+            renderizarLenguas();
+        }
+
+        function marcarPreferente(id) {
+            window.lenguaPreferente = id;
+            renderizarLenguas();
+        }
+
+        function renderizarLenguas() {
+            const ul = document.getElementById('lista-lenguas');
+            ul.innerHTML = '';
+
+            lenguasAgregadas.forEach(l => {
+                const li = document.createElement('li');
+                li.className = 'lengua-card';
+
+                // --- Encabezado: preferente + nombre + quitar ---
+                const enc = document.createElement('div');
+                enc.className = 'encabezado';
+
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'lengua_preferente';
+                radio.value = l.id;
+                radio.checked = (window.lenguaPreferente === l.id);
+                radio.style.width = 'auto';
+                radio.style.margin = '0';
+                radio.onclick = () => marcarPreferente(l.id);
+
+                const prefLabel = document.createElement('label');
+                prefLabel.className = 'pref-label';
+                prefLabel.appendChild(radio);
+                prefLabel.appendChild(document.createTextNode('Pref.'));
+
+                const nombre = document.createElement('span');
+                nombre.className = 'nombre';
+                let extras = [];
+                if (l.familia) extras.push('Familia: ' + l.familia);
+                if (l.autodenom) extras.push('Autodenom: ' + l.autodenom);
+                nombre.innerHTML = l.variante +
+                    (extras.length ? '<br><small>' + extras.join(' | ') + '</small>' : '');
+
+                // Campo oculto: la lengua elegida
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = 'lenguas';
+                hidden.value = l.id;
+
+                const btnX = document.createElement('button');
+                btnX.type = 'button';
+                btnX.className = 'btn-quitar';
+                btnX.textContent = 'X';
+                btnX.onclick = () => quitarLengua(l.id);
+
+                enc.appendChild(prefLabel);
+                enc.appendChild(nombre);
+                enc.appendChild(hidden);
+                enc.appendChild(btnX);
+
+                // --- Atributos: modo, oral, escrito ---
+                const attrs = document.createElement('div');
+                attrs.className = 'atributos';
+
+                // Modo de adquisicion
+                const dMod = document.createElement('div');
+                dMod.innerHTML = '<label>Modo de adquisicion:</label>';
+                const selMod = document.createElement('select');
+                selMod.name = 'modo_' + l.id;
+                selMod.innerHTML = opcionesHTML(MODOS, '-- Modo --');
+                dMod.appendChild(selMod);
+
+                // Nivel oral
+                const dOral = document.createElement('div');
+                dOral.innerHTML = '<label>Nivel ORAL:</label>';
+                const selOral = document.createElement('select');
+                selOral.name = 'oral_' + l.id;
+                selOral.innerHTML = opcionesHTML(NIVELES, '-- Oral --');
+                dOral.appendChild(selOral);
+
+                // Nivel escrito
+                const dEsc = document.createElement('div');
+                dEsc.innerHTML = '<label>Nivel ESCRITO:</label>';
+                const selEsc = document.createElement('select');
+                selEsc.name = 'escrito_' + l.id;
+                selEsc.innerHTML = opcionesHTML(NIVELES, '-- Escrito --');
+                dEsc.appendChild(selEsc);
+
+                attrs.appendChild(dMod);
+                attrs.appendChild(dOral);
+                attrs.appendChild(dEsc);
+
+                li.appendChild(enc);
+                li.appendChild(attrs);
+                ul.appendChild(li);
+            });
+        }
+    </script>
+
+    <!-- ===== DISCAPACIDADES: cascada categoria > subcategoria > condicion ===== -->
+    <script>
+        // Datos inyectados desde el backend para la cascada
+        const SUBCATEGORIAS = [
+            {% for s in subcategorias %}
+            { id: "{{ s.id_subcategoria }}", nombre: "{{ s.nombre | replace('"','') }}", idCat: "{{ s.id_categoria }}" },
+            {% endfor %}
+        ];
+        const CONDICIONES = [
+            {% for c in condiciones %}
+            { id: "{{ c.id_condicion }}", nombre: "{{ c.nombre | replace('"','') }}", codigo: "{{ c.codigo_cif or '' }}", idSub: "{{ c.id_subcategoria }}" },
+            {% endfor %}
+        ];
+
+        // Paso 1 -> 2: al elegir categoria, llenar subcategorias
+        function cargarSubcategorias() {
+            const idCat = document.getElementById('cas-categoria').value;
+            const selSub = document.getElementById('cas-subcategoria');
+            const selCond = document.getElementById('cas-condicion');
+
+            selSub.innerHTML = '<option value="">-- Selecciona subcategoria --</option>';
+            selCond.innerHTML = '<option value="">-- Primero elige subcategoria --</option>';
+            selCond.disabled = true;
+
+            if (!idCat) { selSub.disabled = true; return; }
+
+            SUBCATEGORIAS.filter(s => s.idCat === idCat).forEach(s => {
+                const o = document.createElement('option');
+                o.value = s.id; o.textContent = s.nombre;
+                selSub.appendChild(o);
+            });
+            selSub.disabled = false;
+        }
+
+        // Paso 2 -> 3: al elegir subcategoria, llenar condiciones
+        function cargarCondiciones() {
+            const idSub = document.getElementById('cas-subcategoria').value;
+            const selCond = document.getElementById('cas-condicion');
+
+            selCond.innerHTML = '<option value="">-- Selecciona condicion --</option>';
+            if (!idSub) { selCond.disabled = true; return; }
+
+            CONDICIONES.filter(c => c.idSub === idSub).forEach(c => {
+                const o = document.createElement('option');
+                o.value = c.id;
+                o.textContent = c.nombre + (c.codigo ? ' (' + c.codigo + ')' : '');
+                o.dataset.nombre = c.nombre;
+                o.dataset.codigo = c.codigo;
+                selCond.appendChild(o);
+            });
+            selCond.disabled = false;
+            // al recargar condiciones, limpiar el codigo mostrado
+            document.getElementById('codigo-condicion').textContent = '';
+        }
+
+        // Muestra el codigo CIF de la condicion elegida (solo lectura)
+        function mostrarCodigoCondicion() {
+            const sel = document.getElementById('cas-condicion');
+            const opt = sel.options[sel.selectedIndex];
+            const div = document.getElementById('codigo-condicion');
+            if (sel.value && opt.dataset.codigo) {
+                div.innerHTML = '<strong>Codigo CIF:</strong> ' + opt.dataset.codigo;
+            } else {
+                div.textContent = '';
+            }
+        }
+
+        // Muestra la descripcion cualitativa del grado de dificultad elegido
+        function mostrarDescGrado() {
+            const sel = document.getElementById('cas-gradodif');
+            const opt = sel.options[sel.selectedIndex];
+            const div = document.getElementById('desc-grado');
+            if (sel.value) {
+                const desc = opt.dataset.desc || '';
+                const rango = opt.dataset.rango || '';
+                let txt = opt.textContent.trim();
+                if (desc) txt += ' — ' + desc;
+                if (rango) txt += ' (' + rango + ')';
+                div.textContent = txt;
+                div.style.display = 'block';
+            } else {
+                div.style.display = 'none';
+            }
+        }
+
+        let condicionesAgregadas = [];
+
+        function agregarCondicion() {
+            const selCond = document.getElementById('cas-condicion');
+            const selGdif = document.getElementById('cas-gradodif');
+            const selGdep = document.getElementById('cas-gradodep');
+
+            const id = selCond.value;
+            if (!id) { alert('Selecciona una condicion (categoria, subcategoria y condicion).'); return; }
+            if (condicionesAgregadas.some(c => c.id === id)) {
+                alert('Esa discapacidad ya fue agregada.');
+                return;
+            }
+
+            const opt = selCond.options[selCond.selectedIndex];
+            const optGdif = selGdif.options[selGdif.selectedIndex];
+            const optGdep = selGdep.options[selGdep.selectedIndex];
+
+            condicionesAgregadas.push({
+                id: id,
+                nombre: opt.dataset.nombre,
+                codigo: opt.dataset.codigo,
+                idGdif: selGdif.value,
+                txtGdif: selGdif.value ? optGdif.textContent : '',
+                idGdep: selGdep.value,
+                txtGdep: selGdep.value ? optGdep.textContent : ''
+            });
+
+            // Limpiar para la siguiente
+            selCond.selectedIndex = 0;
+            selGdif.selectedIndex = 0;
+            selGdep.selectedIndex = 0;
+            document.getElementById('codigo-condicion').textContent = '';
+            document.getElementById('desc-grado').style.display = 'none';
+            renderizarCondiciones();
+        }
+
+        function quitarCondicion(id) {
+            condicionesAgregadas = condicionesAgregadas.filter(c => c.id !== id);
+            renderizarCondiciones();
+        }
+
+        function renderizarCondiciones() {
+            const ul = document.getElementById('lista-condiciones');
+            ul.innerHTML = '';
+
+            condicionesAgregadas.forEach(c => {
+                const li = document.createElement('li');
+                li.className = 'lengua-card';
+
+                const enc = document.createElement('div');
+                enc.className = 'encabezado';
+
+                const nombre = document.createElement('span');
+                nombre.className = 'nombre';
+                nombre.innerHTML = c.nombre + (c.codigo ? ' <small>CIF: ' + c.codigo + '</small>' : '');
+
+                // Campos ocultos que se envian al backend:
+                // la condicion, y su grado de dificultad/dependencia
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = 'condiciones';
+                hidden.value = c.id;
+
+                const hGdif = document.createElement('input');
+                hGdif.type = 'hidden';
+                hGdif.name = 'gradodif_' + c.id;
+                hGdif.value = c.idGdif;
+
+                const hGdep = document.createElement('input');
+                hGdep.type = 'hidden';
+                hGdep.name = 'gradodep_' + c.id;
+                hGdep.value = c.idGdep;
+
+                const btnX = document.createElement('button');
+                btnX.type = 'button';
+                btnX.className = 'btn-quitar';
+                btnX.textContent = 'X';
+                btnX.onclick = () => quitarCondicion(c.id);
+
+                enc.appendChild(nombre);
+                enc.appendChild(hidden);
+                enc.appendChild(hGdif);
+                enc.appendChild(hGdep);
+                enc.appendChild(btnX);
+
+                // Info de lo que eligio el usuario
+                const info = document.createElement('div');
+                info.style.fontSize = '12px';
+                info.style.marginTop = '6px';
+                let html = '';
+                html += '<div><strong>Grado de dificultad:</strong> ' + (c.txtGdif || '— sin especificar —') + '</div>';
+                html += '<div><strong>Grado de dependencia:</strong> ' + (c.txtGdep || '— sin especificar —') + '</div>';
+                info.innerHTML = html;
+
+                li.appendChild(enc);
+                li.appendChild(info);
+                ul.appendChild(li);
+            });
+        }
+    </script>
     <script src="{{ url_for('static', filename='js/boton_inicio.js') }}"></script>
 </body>
 </html>
