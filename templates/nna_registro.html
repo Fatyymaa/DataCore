@@ -155,17 +155,23 @@
             <hr>
             <span class="seccion-titulo">Direccion o Residencia Actual</span>
 
+            <label>Codigo Postal (CP):</label>
+            <input type="text" name="cp" id="cp" placeholder="Ej. 01619" required maxlength="5"
+                   onblur="buscarCP()" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+            <div id="cp-aviso" style="font-size:12px; margin:-5px 0 10px 0; min-height:16px;"></div>
+
             <label>Estado:</label>
-            <input type="text" name="estado" placeholder="Ej. CDMX" required>
+            <input type="text" name="estado" id="estado" placeholder="Se llena con el CP" required readonly
+                   style="background:#eee;">
 
             <label>Municipio / Alcaldia:</label>
-            <input type="text" name="municipio" placeholder="Ej. Gustavo A. Madero" required>
+            <input type="text" name="municipio" id="municipio" placeholder="Se llena con el CP" required readonly
+                   style="background:#eee;">
 
             <label>Colonia:</label>
-            <input type="text" name="colonia" placeholder="Ej. La Escalera" required>
-
-            <label>Codigo Postal (CP):</label>
-            <input type="text" name="cp" placeholder="Ej. 07320" required maxlength="10">
+            <select name="colonia" id="colonia" required disabled>
+                <option value="">-- Escribe el CP primero --</option>
+            </select>
 
             <label>Calle:</label>
             <input type="text" name="calle" placeholder="Ej. Av. Juan de Dios Batiz" required>
@@ -333,17 +339,10 @@
 
     <!-- ===== DISCAPACIDADES: cascada categoria > subcategoria > condicion ===== -->
     <script>
-        // Datos inyectados desde el backend para la cascada
-        const SUBCATEGORIAS = [
-            {% for s in subcategorias %}
-            { id: "{{ s.id_subcategoria }}", nombre: "{{ s.nombre | replace('"','') }}", idCat: "{{ s.id_categoria }}" },
-            {% endfor %}
-        ];
-        const CONDICIONES = [
-            {% for c in condiciones %}
-            { id: "{{ c.id_condicion }}", nombre: "{{ c.nombre | replace('"','') }}", codigo: "{{ c.codigo_cif or '' }}", idSub: "{{ c.id_subcategoria }}" },
-            {% endfor %}
-        ];
+        // Datos inyectados de forma SEGURA con tojson (escapa comillas,
+        // acentos y cualquier caracter especial -> nunca rompe el script)
+        const SUBCATEGORIAS = {{ subcategorias_json | safe }};
+        const CONDICIONES = {{ condiciones_json | safe }};
 
         // Paso 1 -> 2: al elegir categoria, llenar subcategorias
         function cargarSubcategorias() {
@@ -515,6 +514,68 @@
                 li.appendChild(info);
                 ul.appendChild(li);
             });
+        }
+    </script>
+    <!-- ===== AUTOCOMPLETADO POR CÓDIGO POSTAL ===== -->
+    <script>
+        async function buscarCP() {
+            const cp = document.getElementById('cp').value.trim();
+            const aviso = document.getElementById('cp-aviso');
+            const estado = document.getElementById('estado');
+            const municipio = document.getElementById('municipio');
+            const colonia = document.getElementById('colonia');
+
+            if (cp.length < 4) { return; }  // muy corto, no busca aún
+
+            aviso.textContent = 'Buscando...';
+            aviso.style.color = '#666';
+
+            try {
+                const resp = await fetch('/api/cp/' + cp);
+                const data = await resp.json();
+
+                if (data.encontrado) {
+                    estado.value = data.estado;
+                    municipio.value = data.municipio;
+                    // Llenar el menú de colonias
+                    colonia.innerHTML = '<option value="">-- Selecciona tu colonia --</option>';
+                    data.colonias.forEach(c => {
+                        const o = document.createElement('option');
+                        o.value = c; o.textContent = c;
+                        colonia.appendChild(o);
+                    });
+                    colonia.disabled = false;
+                    aviso.textContent = '✓ ' + data.colonias.length + ' colonia(s) encontrada(s)';
+                    aviso.style.color = '#1b5e20';
+                } else {
+                    // CP no está en el catálogo: permitir captura manual
+                    estado.value = '';
+                    municipio.value = '';
+                    colonia.innerHTML = '<option value="">-- CP no encontrado --</option>';
+                    colonia.disabled = true;
+                    aviso.innerHTML = 'CP no está en el catálogo. Puedes escribir los datos manualmente:';
+                    aviso.style.color = '#b22';
+                    // Quitar readonly para captura manual
+                    estado.removeAttribute('readonly'); estado.style.background = '#fff';
+                    municipio.removeAttribute('readonly'); municipio.style.background = '#fff';
+                    // Convertir colonia a input manual
+                    habilitarColoniaManual();
+                }
+            } catch (e) {
+                aviso.textContent = 'Error al buscar el CP';
+                aviso.style.color = '#b22';
+            }
+        }
+
+        // Si el CP no existe, reemplaza el select de colonia por un input de texto
+        function habilitarColoniaManual() {
+            const colonia = document.getElementById('colonia');
+            if (colonia.tagName === 'SELECT') {
+                const input = document.createElement('input');
+                input.type = 'text'; input.name = 'colonia'; input.id = 'colonia';
+                input.placeholder = 'Escribe tu colonia'; input.required = true;
+                colonia.parentNode.replaceChild(input, colonia);
+            }
         }
     </script>
     <script src="{{ url_for('static', filename='js/boton_inicio.js') }}"></script>

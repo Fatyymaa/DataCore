@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, a
 import psycopg2
 import re  
 import os
+import json
 from psycopg2.extras import RealDictConnection, RealDictCursor
 from functools import wraps
 
@@ -393,26 +394,9 @@ def home():
         cur.execute(query_casos, (id_personal,))
         casos_asignados = cur.fetchall()
 
-        query_consultas = """
-            SELECT 
-                c.id_consul,
-                tc.nom_tipo_consul AS tipo,
-                CONCAT(n.nombre, ' ', COALESCE(n.apellido_p, ''), ' ', COALESCE(n.apellido_m, '')) AS nombre_nna,
-                TO_CHAR(c.fecha_consul, 'DD/MM/YYYY HH24:MI') AS fecha_consulta,
-                c.motivo
-            FROM consulta c
-            JOIN tipo_consulta tc ON c.id_tipo_consul = tc.id_tipo_consul
-            JOIN nna n ON c.id_nna = n.id_nna
-            WHERE c.id_personal = %s
-            ORDER BY c.fecha_consul DESC;
-        """
-        cur.execute(query_consultas, (id_personal,))
-        consultas_asignadas = cur.fetchall()
-        
     except Exception as e:
         print(f"Error en la carga del Dashboard General: {e}")
         casos_asignados = []
-        consultas_asignadas = []
         usuario = None
     finally:
         cur.close()
@@ -421,7 +405,7 @@ def home():
     if not usuario:
         return "Error interno del servidor", 500
         
-    return render_template('home.html', p=usuario, casos=casos_asignados, consultas=consultas_asignadas)
+    return render_template('home.html', p=usuario, casos=casos_asignados)
 
 # ----------------------------------------------------------------
 # MÓDULO 2 (NNA) Y MÓDULO 3 (TUTORES)
@@ -564,6 +548,19 @@ def registrar_nna():
         FROM condicion ORDER BY nombre
     """)
     condiciones = cur.fetchall()
+    # Convertir a JSON con las claves que usa el JavaScript de la cascada.
+    # json.dumps escapa comillas/acentos -> nunca rompe el script aunque
+    # haya 1,655 condiciones con caracteres especiales.
+    subcategorias_json = json.dumps([
+        {'id': str(s['id_subcategoria']), 'nombre': s['nombre'],
+         'idCat': str(s['id_categoria'])}
+        for s in subcategorias
+    ], ensure_ascii=False)
+    condiciones_json = json.dumps([
+        {'id': str(c['id_condicion']), 'nombre': c['nombre'],
+         'codigo': c['codigo_cif'] or '', 'idSub': str(c['id_subcategoria'])}
+        for c in condiciones
+    ], ensure_ascii=False)
     # Catálogos de grados (los elige el usuario por cada NNA)
     cur.execute("""
         SELECT id_grado_dif, nom_grado_dif, codigo_cif_dif,
@@ -591,6 +588,8 @@ def registrar_nna():
                            niveles_competencia=niveles_competencia,
                            categorias=categorias, subcategorias=subcategorias,
                            condiciones=condiciones,
+                           subcategorias_json=subcategorias_json,
+                           condiciones_json=condiciones_json,
                            grados_dif=grados_dif, grados_dep=grados_dep)
 
 @app.route('/nna/detalle/<int:id_nna>')
@@ -744,6 +743,17 @@ def registrar_tutor():
     subcategorias = cur.fetchall()
     cur.execute("SELECT id_condicion, nombre, codigo_cif, id_subcategoria FROM condicion ORDER BY nombre")
     condiciones = cur.fetchall()
+    # JSON seguro para el JavaScript (igual que en NNA)
+    subcategorias_json = json.dumps([
+        {'id': str(s['id_subcategoria']), 'nombre': s['nombre'],
+         'idCat': str(s['id_categoria'])}
+        for s in subcategorias
+    ], ensure_ascii=False)
+    condiciones_json = json.dumps([
+        {'id': str(c['id_condicion']), 'nombre': c['nombre'],
+         'codigo': c['codigo_cif'] or '', 'idSub': str(c['id_subcategoria'])}
+        for c in condiciones
+    ], ensure_ascii=False)
     cur.execute("""
         SELECT id_grado_dif, nom_grado_dif, codigo_cif_dif, desc_cualitativa, rango_porcent
         FROM grado_dificultad ORDER BY codigo_cif_dif
@@ -758,7 +768,10 @@ def registrar_tutor():
                            lenguas=lenguas, modos_adquisicion=modos_adquisicion,
                            niveles_competencia=niveles_competencia,
                            categorias=categorias, subcategorias=subcategorias,
-                           condiciones=condiciones, grados_dif=grados_dif, grados_dep=grados_dep)
+                           condiciones=condiciones,
+                           subcategorias_json=subcategorias_json,
+                           condiciones_json=condiciones_json,
+                           grados_dif=grados_dif, grados_dep=grados_dep)
 
 
 # ----------------------------------------------------------------
@@ -1108,164 +1121,6 @@ def pantalla_asignar_discapacidad():
     if 'usuario_id' not in session: return redirect(url_for('index'))
     return render_template('asignar_discapacidad.html')
 
-# ================================================================
-# MÓDULO 5: CATÁLOGOS
-# ================================================================
-CATALOGOS = {
-    'sexo':           {'tabla': 'sexo',           'id': 'id_sexo',      'campos': [('nom_sexo', 'Nombre')], 'titulo': 'Sexo'},
-    'nacionalidad':   {'tabla': 'nacionalidad',   'id': 'id_nac',       'campos': [('nom_nac', 'Nacionalidad')], 'titulo': 'Nacionalidades'},
-    'escolaridad':    {'tabla': 'escolaridad',    'id': 'id_esc',       'campos': [('nom_esc', 'Nivel')], 'titulo': 'Escolaridad'},
-    'parentesco':     {'tabla': 'parentesco',     'id': 'id_paren',     'campos': [('nom_paren', 'Parentesco')], 'titulo': 'Parentesco'},
-    'tipo_contacto':  {'tabla': 'tipo_contacto',  'id': 'id_tipo_con',  'campos': [('nom_tipo_con', 'Tipo de contacto')], 'titulo': 'Tipos de contacto'},
-    'derecho':        {'tabla': 'derecho',        'id': 'id_der',       'campos': [('nom_der', 'Derecho')], 'titulo': 'Derechos (LGDNNA)'},
-    'tipo_consulta':  {'tabla': 'tipo_consulta',  'id': 'id_tipo_consul', 'campos': [('nom_tipo_consul', 'Tipo de consulta')], 'titulo': 'Tipos de consulta'},
-    'metodo_pago':    {'tabla': 'metodo_pago',    'id': 'id_met_pago',  'campos': [('nom_met_pago', 'Método de pago')], 'titulo': 'Métodos de pago'},
-    'enfermedad':     {'tabla': 'enfermedad',     'id': 'id_enf',       'campos': [('nombre', 'Enfermedad'), ('codigo_cie', 'Código CIE')], 'titulo': 'Enfermedades'},
-    'lengua':         {'tabla': 'lengua',         'id': 'id_len',       'campos': [('variante_len', 'Variante'), ('familia_len', 'Familia'), ('agrupacion_len', 'Agrupación'), ('autodenom_len', 'Autodenominación')], 'titulo': 'Lenguas'},
-}
-
-
-@app.route('/catalogos')
-@app.route('/catalogos/<cat>')
-def administrar_catalogos(cat=None):
-    if 'usuario_id' not in session: return redirect(url_for('index'))
-
-    if cat is None or cat not in CATALOGOS:
-        cat = 'derecho'
-
-    conf = CATALOGOS[cat]
-    columnas = conf['id'] + ', ' + ', '.join(c[0] for c in conf['campos'])
-
-    conn = conectar_db()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute(f"SELECT {columnas} FROM {conf['tabla']} ORDER BY {conf['id']}")
-    filas = cur.fetchall()
-    cur.close()
-    conn.close()
-
-    return render_template('catalogos.html',
-                           catalogos=CATALOGOS,
-                           cat_actual=cat,
-                           conf=conf,
-                           filas=filas,
-                           nombre=session.get('nombre', 'Usuario'))
-
-
-@app.route('/catalogos/<cat>/agregar', methods=['POST'])
-def agregar_valor_catalogo(cat):
-    if 'usuario_id' not in session: return redirect(url_for('index'))
-
-    if cat not in CATALOGOS:
-        flash("Catálogo no válido", "error")
-        return redirect(url_for('administrar_catalogos'))
-
-    conf = CATALOGOS[cat]
-    cols = [c[0] for c in conf['campos']]
-    valores = [request.form.get(c) or None for c in cols]
-
-    placeholders = ', '.join(['%s'] * len(cols))
-    columnas_sql = ', '.join(cols)
-
-    conn = conectar_db()
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            f"INSERT INTO {conf['tabla']} ({columnas_sql}) VALUES ({placeholders})",
-            valores
-        )
-        conn.commit()
-        flash(f"Valor agregado al catálogo: {conf['titulo']}", "success")
-    except Exception as e:
-        conn.rollback()
-        print(f"Error al agregar a catálogo: {e}")
-        flash(f"Error (¿valor duplicado?): {e}", "error")
-    finally:
-        cur.close()
-        conn.close()
-
-    return redirect(url_for('administrar_catalogos', cat=cat))
-
-# ----------------------------------------------------------------
-# MÓDULO 6: CONSULTAS
-# ----------------------------------------------------------------
-
-@app.route('/consultas')
-def listar_consultas():
-    if 'usuario_id' not in session: return redirect(url_for('index'))
-
-    conn = conectar_db()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("""
-        SELECT c.*,
-               tc.nom_tipo_consul AS tipo,
-               n.folio_nna, n.nombre AS nna_nombre, n.apellido_p AS nna_apellido,
-               p.nombre AS prof_nombre, p.apellido_p AS prof_apellido,
-               r.nombre_rol AS prof_rol
-        FROM consulta c
-        JOIN tipo_consulta tc ON tc.id_tipo_consul = c.id_tipo_consul
-        JOIN nna n            ON n.id_nna = c.id_nna
-        JOIN personal p       ON p.id = c.id_personal
-        LEFT JOIN roles r     ON r.id = p.rol_id
-        ORDER BY c.fecha_consul DESC
-    """)
-    consultas = cur.fetchall()
-    cur.close()
-    conn.close()
-    return render_template('consultas_listado.html',
-                           consultas=consultas, nombre=session['nombre'])
-
-
-@app.route('/consultas/registrar', methods=['GET', 'POST'])
-def registrar_consulta():
-    if 'usuario_id' not in session: return redirect(url_for('index'))
-
-    conn = conectar_db()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-
-    if request.method == 'POST':
-        d = request.form
-        try:
-            cur.execute("""
-                INSERT INTO consulta (id_nna, id_personal, id_tipo_consul, motivo, notas)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (
-                d['id_nna'], d['id_personal'], d['id_tipo_consul'],
-                d.get('motivo') or None, d.get('notas') or None
-            ))
-            conn.commit()
-            flash("Consulta registrada con éxito", "success")
-            return redirect(url_for('listar_consultas'))
-        except Exception as e:
-            conn.rollback()
-            print(f"Error al registrar consulta: {e}")
-            flash(f"Error al registrar consulta: {e}", "error")
-            return redirect('/consultas/registrar')
-        finally:
-            cur.close()
-            conn.close()
-
-    cur.execute("""
-        SELECT id_nna, folio_nna, nombre, apellido_p, apellido_m
-        FROM nna ORDER BY nombre, apellido_p
-    """)
-    nna_lista = cur.fetchall()
-    cur.execute("SELECT id_tipo_consul, nom_tipo_consul FROM tipo_consulta ORDER BY id_tipo_consul")
-    tipos = cur.fetchall()
-    cur.execute("""
-        SELECT p.id, p.nombre, p.apellido_p, r.nombre_rol
-        FROM personal p JOIN roles r ON r.id = p.rol_id
-        WHERE p.esta_activo = TRUE
-          AND r.nombre_rol IN ('Doctor','Psicologo','Abogado','Trabajador Social')
-        ORDER BY p.nombre
-    """)
-    profesionales = cur.fetchall()
-
-    cur.close()
-    conn.close()
-    return render_template('consulta_registro.html',
-                           nna_lista=nna_lista, tipos=tipos,
-                           profesionales=profesionales)
-
 # ----------------------------------------------------------------
 # MÓDULO 8: EQUIPOS MULTIDISCIPLINARIOS
 # ----------------------------------------------------------------
@@ -1566,116 +1421,6 @@ def editar_nna(id_nna):
                            cat_escolaridad=cat_escolaridad, cat_estados=cat_estados, 
                            cat_lenguas=cat_lenguas, cat_condiciones=cat_condiciones,
                            lenguas_actuales=lenguas_actuales)
-
-# ----------------------------------------------------------------
-# MÓDULO: DISCAPACIDADES (CIF)
-# ----------------------------------------------------------------
-
-@app.route('/discapacidades')
-def listar_discapacidades():
-    """Lista las 100 discapacidades del catálogo CIF con su jerarquía."""
-    if 'usuario_id' not in session: return redirect(url_for('index'))
-
-    conn = conectar_db()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("""
-        SELECT c.id_condicion, c.nombre, c.codigo_cif,
-               ca.nombre AS categoria, sc.nombre AS subcategoria,
-               gd.nom_grado_dif, gd.codigo_cif_dif,
-               gp.nom_grado_dep
-        FROM condicion c
-        JOIN subcategoria sc ON sc.id_subcategoria = c.id_subcategoria
-        JOIN categoria ca    ON ca.id_categoria = sc.id_categoria
-        LEFT JOIN grado_dificultad gd  ON gd.id_grado_dif = c.id_grado_dif
-        LEFT JOIN grado_dependencia gp ON gp.id_grado_dep = c.id_grado_dep
-        ORDER BY ca.nombre, sc.nombre, c.nombre
-    """)
-    discapacidades = cur.fetchall()
-    cur.close()
-    conn.close()
-    return render_template('discapacidades_listado.html',
-                           discapacidades=discapacidades, nombre=session['nombre'])
-
-
-@app.route('/discapacidad/<int:id_condicion>', methods=['GET', 'POST'])
-def detalle_discapacidad(id_condicion):
-    """Ver / editar una discapacidad: grados + funciones + productos."""
-    if 'usuario_id' not in session: return redirect(url_for('index'))
-
-    conn = conectar_db()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-
-    if request.method == 'POST':
-        try:
-            # Grados (un valor cada uno)
-            id_grado_dif = request.form.get('id_grado_dif') or None
-            id_grado_dep = request.form.get('id_grado_dep') or None
-            cur.execute("""
-                UPDATE condicion SET id_grado_dif = %s, id_grado_dep = %s
-                WHERE id_condicion = %s
-            """, (id_grado_dif, id_grado_dep, id_condicion))
-
-            # Funciones afectadas (N:M): borrar y reinsertar las marcadas
-            cur.execute("DELETE FROM condicion_funcion WHERE id_condicion = %s", (id_condicion,))
-            for id_func in request.form.getlist('funciones'):
-                cur.execute("""
-                    INSERT INTO condicion_funcion (id_condicion, id_funcion)
-                    VALUES (%s, %s) ON CONFLICT DO NOTHING
-                """, (id_condicion, id_func))
-
-            # Productos de apoyo (N:M)
-            cur.execute("DELETE FROM condicion_producto WHERE id_condicion = %s", (id_condicion,))
-            for id_prod in request.form.getlist('productos'):
-                cur.execute("""
-                    INSERT INTO condicion_producto (id_condicion, id_producto)
-                    VALUES (%s, %s) ON CONFLICT DO NOTHING
-                """, (id_condicion, id_prod))
-
-            conn.commit()
-            flash("Discapacidad actualizada correctamente", "success")
-            return redirect(url_for('detalle_discapacidad', id_condicion=id_condicion))
-        except Exception as e:
-            conn.rollback()
-            print(f"Error al actualizar discapacidad: {e}")
-            flash(f"Error al actualizar: {e}", "error")
-
-    # --- Datos de la discapacidad ---
-    cur.execute("""
-        SELECT c.*, ca.nombre AS categoria, sc.nombre AS subcategoria
-        FROM condicion c
-        JOIN subcategoria sc ON sc.id_subcategoria = c.id_subcategoria
-        JOIN categoria ca    ON ca.id_categoria = sc.id_categoria
-        WHERE c.id_condicion = %s
-    """, (id_condicion,))
-    disc = cur.fetchone()
-    if not disc:
-        cur.close(); conn.close()
-        return "Discapacidad no encontrada", 404
-
-    # Catálogos para los menús
-    cur.execute("SELECT id_grado_dif, nom_grado_dif, codigo_cif_dif FROM grado_dificultad ORDER BY codigo_cif_dif")
-    grados_dif = cur.fetchall()
-    cur.execute("SELECT id_grado_dep, nom_grado_dep FROM grado_dependencia ORDER BY id_grado_dep")
-    grados_dep = cur.fetchall()
-    cur.execute("SELECT id_funcion, nom_funcion, codigo_cif FROM funcion_corporal ORDER BY nom_funcion")
-    funciones = cur.fetchall()
-    cur.execute("SELECT id_producto, nom_producto FROM producto_apoyo ORDER BY nom_producto")
-    productos = cur.fetchall()
-
-    # Lo que ya tiene marcado (para precargar los checkboxes)
-    cur.execute("SELECT id_funcion FROM condicion_funcion WHERE id_condicion = %s", (id_condicion,))
-    func_marcadas = [r['id_funcion'] for r in cur.fetchall()]
-    cur.execute("SELECT id_producto FROM condicion_producto WHERE id_condicion = %s", (id_condicion,))
-    prod_marcados = [r['id_producto'] for r in cur.fetchall()]
-
-    cur.close()
-    conn.close()
-    return render_template('discapacidad_detalle.html',
-                           disc=disc, grados_dif=grados_dif, grados_dep=grados_dep,
-                           funciones=funciones, productos=productos,
-                           func_marcadas=func_marcadas, prod_marcados=prod_marcados,
-                           nombre=session['nombre'])
-
 
 # Arranque del servidor Flask al final de todas las definiciones
 if __name__ == '__main__':
