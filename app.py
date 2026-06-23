@@ -15,9 +15,9 @@ app.secret_key = 'tu_llave_secreta_super_pro'
 def conectar_db():
     return psycopg2.connect(
         host="localhost",
-        database="base_normalizada",
+        database="fundacion_db",
         user="postgres",
-        password="Diana2005"
+        password="1234"
     )
 
 # ----------------------------------------------------------------
@@ -175,11 +175,20 @@ def dashboard():
 
     conn = conectar_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
+
     cur.execute(QUERY_PERSONAL_COMPLETO + " ORDER BY p.id ASC")
     usuarios = cur.fetchall()
+
+    cur.execute("SELECT id_len, familia_len FROM lengua;")
+    lenguas = cur.fetchall()
+
     cur.close()
     conn.close()
-    return render_template('dashboard.html', personal=usuarios, nombre=session['nombre'])
+
+    return render_template('dashboard.html', 
+                           personal=usuarios, 
+                           nombre=session['nombre'], 
+                           lenguas=lenguas)
 
 
 @app.route('/registrar', methods=['POST'])
@@ -187,6 +196,7 @@ def registrar():
     if 'usuario_id' not in session: return redirect(url_for('index'))
 
     d = request.form
+    idiomas = d.getlist('idiomas')
     pass1 = d['password1']
     pass2 = d['confirmar_password']
     rfc = d['rfc'].upper()
@@ -227,19 +237,23 @@ def registrar():
             d['nombre'], d['apellido_p'], d['apellido_m'], rfc, curp, d['correo'],
             pass1, d['rol_id'], id_sexo, d['fecha_nacimiento'], es_emp, activo, id_direccion
         ))
+        id_personal = cur.fetchone()[0]
+
+        if idiomas:
+            query_idioma = "INSERT INTO personal_lengua (id_personal, id_len) VALUES (%s, %s);"
+            for id_len in idiomas:
+                cur.execute(query_idioma, (id_personal, id_len))
 
         conn.commit()
-        flash("Usuario y dirección registrados con éxito", "success")
+        flash("Usuario, dirección y lenguajes registrados con éxito", "success")
     except Exception as e:
         conn.rollback()
-        print(f"Error en el registro: {e}")
         flash(f"Error al registrar en base de datos: {e}", "error")
     finally:
         cur.close()
         conn.close()
 
     return redirect('/dashboard')
-
 
 @app.route('/estado/<int:id>/<string:actual>')
 def cambiar_estado(id, actual):

@@ -31,9 +31,7 @@
             <a href="/casos/registrar" class="tab-btn">Abrir Caso</a>
             <a href="/casos" class="tab-btn">M4: Expedientes</a>
 
-            <h3>Módulo 5: Catálogos</h3>
-            <a href="/catalogos" class="tab-btn">Administrar Catálogos</a>
-            <a href="/discapacidades" class="tab-btn">Discapacidades (CIF)</a>
+            
 
             <h3>Módulo 6: Consultas</h3>
             <a href="/consultas/registrar" class="tab-btn">Registrar Consulta</a>
@@ -95,15 +93,7 @@
                         </div>
                     </div>
 
-                    <div class="mod-card">
-                        <h4>Módulo 5: Catálogos</h4>
-                        <p>Administración de los catálogos del sistema (derechos, tipos de consulta, enfermedades, lenguas, escolaridad y más). Agrega valores que aparecerán como opciones en los formularios.</p>
-                        <div class="card-actions">
-                            <a href="/catalogos" class="btn-submit" style="font-size:11px; text-decoration:none; text-align:center;">-> Administrar Catálogos</a>
-                            <a href="/discapacidades" class="btn-submit" style="font-size:11px; background:#444; text-decoration:none; text-align:center;">-> Discapacidades (CIF)</a>
-                        </div>
-                    </div>
-
+                    
                     <div class="mod-card">
                         <h4>Módulo 6: Consultas</h4>
                         <p>Registro de consultas de atención a NNA (médica, psicológica, jurídica y de trabajo social), con el profesional que atiende y las notas de cada sesión.</p>
@@ -221,7 +211,24 @@
                             <label>Número Interior (Opcional):</label>
                             <input type="number" name="numero_int">
                         </div>
+                        <div style="margin-top: 25px; border: 1px solid #000; padding: 10px;">
+    <div style="background: #000; color: #fff; padding: 5px; font-size: 12px; font-weight: bold; margin-bottom: 10px;">
+        LENGUAS DEL PERSONAL
+    </div>
+    <p style="font-size: 11px; margin-bottom: 10px;">Selecciona las lenguas que domina.</p>
+    
+    <div style="display: flex; gap: 5px;">
+        <select id="select-lengua" style="flex-grow: 1; padding: 5px;">
+    <option value="">-- Selecciona una lengua --</option>
+    {% for l in lenguas %}
+        <option value="{{ l.id_len }}">{{ l.familia_len }}</option>
+    {% endfor %}
+</select>
+        <button type="button" class="btn-submit" style="margin: 0; background: #2e5d26;" onclick="agregarLengua()">+ AGREGAR</button>
+    </div>
 
+    <div id="contenedor-lenguas" style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 5px;"></div>
+</div>
                         <button type="submit" class="btn-submit">Registrar Alta</button>
                     </form>
                 </div>
@@ -332,7 +339,7 @@
     </div>
 
     <script>
-        // FUNCIÓN 1: LA QUE CAMBIA LAS PESTAÑAS
+        
         function cambiarPestaña(idSeccion) {
             document.querySelectorAll('.view-section').forEach(seccion => {
                 seccion.classList.remove('active');
@@ -351,7 +358,7 @@
             }
         } 
 
-        // FUNCIÓN 2: EL BUSCADOR EN TIEMPO REAL
+        
         function filtrarPersonalSeccionado() {
             const fNombre = document.getElementById('f-nombre').value.toUpperCase();
             const fPaterno = document.getElementById('f-paterno').value.toUpperCase();
@@ -394,6 +401,32 @@
                 }
             });
         }
+        // NUEVA FUNCIÓN PARA LENGUAS
+function agregarLengua() {
+    const select = document.getElementById('select-lengua');
+    const container = document.getElementById('contenedor-lenguas');
+    const id = select.value;
+    const texto = select.options[select.selectedIndex].text;
+
+    if (!id) return; // Si no hay valor, no hacer nada
+
+    // Evitar duplicados
+    if (document.querySelector(`input[value="${id}"][name="idiomas"]`)) {
+        alert("Esta lengua ya ha sido agregada.");
+        return;
+    }
+
+    // Crear el tag visual
+    const tag = document.createElement('div');
+    tag.style = "background: #ddd; padding: 5px 10px; border-radius: 3px; display: flex; align-items: center; gap: 5px; border: 1px solid #999;";
+    tag.innerHTML = `
+        <span style="font-size: 12px;">${texto}</span>
+        <button type="button" onclick="this.parentElement.remove()" style="border:none; background:red; color:white; cursor:pointer; font-size:10px;">X</button>
+        <input type="hidden" name="idiomas" value="${id}">
+    `;
+    container.appendChild(tag);
+    select.value = ""; // Limpiar el select
+}
     </script>
     <script src="{{ url_for('static', filename='js/boton_inicio.js') }}"></script>
 </body>
