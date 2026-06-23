@@ -31,8 +31,6 @@
             <a href="/casos/registrar" class="tab-btn">Abrir Caso</a>
             <a href="/casos" class="tab-btn">M4: Expedientes</a>
 
-            
-
             <h3>Módulo 6: Consultas</h3>
             <a href="/consultas/registrar" class="tab-btn">Registrar Consulta</a>
             <a href="/consultas" class="tab-btn">M6: Ver Consultas</a>
@@ -93,7 +91,6 @@
                         </div>
                     </div>
 
-                    
                     <div class="mod-card">
                         <h4>Módulo 6: Consultas</h4>
                         <p>Registro de consultas de atención a NNA (médica, psicológica, jurídica y de trabajo social), con el profesional que atiende y las notas de cada sesión.</p>
@@ -211,30 +208,73 @@
                             <label>Número Interior (Opcional):</label>
                             <input type="number" name="numero_int">
                         </div>
-                        <div style="margin-top: 25px; border: 1px solid #000; padding: 10px;">
-    <div style="background: #000; color: #fff; padding: 5px; font-size: 12px; font-weight: bold; margin-bottom: 10px;">
-        LENGUAS DEL PERSONAL
-    </div>
-    <p style="font-size: 11px; margin-bottom: 10px;">Selecciona las lenguas que domina.</p>
-    
-    <div style="display: flex; gap: 5px;">
-        <select id="select-lengua" style="flex-grow: 1; padding: 5px;">
-    <option value="">-- Selecciona una lengua --</option>
-    {% for l in lenguas %}
-        <option value="{{ l.id_len }}">{{ l.familia_len }}</option>
-    {% endfor %}
-</select>
-        <button type="button" class="btn-submit" style="margin: 0; background: #2e5d26;" onclick="agregarLengua()">+ AGREGAR</button>
-    </div>
 
-    <div id="contenedor-lenguas" style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 5px;"></div>
-</div>
-                        <button type="submit" class="btn-submit">Registrar Alta</button>
+                        <div style="margin-top: 25px; border: 1px solid #000; padding: 10px;">
+                            <div style="background: #000; color: #fff; padding: 5px; font-size: 12px; font-weight: bold; margin-bottom: 10px;">
+                                LENGUAS DEL PERSONAL
+                            </div>
+                            <p style="font-size: 11px; margin-bottom: 10px;">Selecciona las lenguas que domina y especifica su nivel.</p>
+                            
+                            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                <select id="select-lengua" style="flex-grow: 1; padding: 5px;">
+                                    <option value="">-- Selecciona una lengua para agregar --</option>
+                                    {% for l in lenguas %}
+                                        <option value="{{ l['id_len'] }}">{{ l['autodenom_len'] }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" id="btn-add-lengua" style="width: auto; margin-top: 0; padding: 5px 15px; background: #000; color: #fff; cursor: pointer;">+ Agregar Lengua</button>
+                            </div>
+
+                            <table id="tabla-lenguas" style="width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 12px;" border="1">
+                                <thead style="background: #000; color: #fff;">
+                                    <tr>
+                                        <th style="padding: 5px;">Lengua</th>
+                                        <th style="padding: 5px;">Modo de adquisición</th>
+                                        <th style="padding: 5px;">Nivel Oral</th>
+                                        <th style="padding: 5px;">Nivel Escrito</th>
+                                        <th style="padding: 5px;">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    </tbody>
+                            </table>
+
+                            <template id="selects-template">
+                                <td style="padding: 5px;">
+                                    <select name="modo_XXXX" style="width: 100%; padding: 5px;">
+                                        <option value="">-- Modo --</option>
+                                        {% for m in modos_adquisicion %}
+                                            <option value="{{ m['id_mod_adc'] }}">{{ m['categ_mod_adc'] }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td style="padding: 5px;">
+                                    <select name="oral_XXXX" style="width: 100%; padding: 5px;">
+                                        <option value="">-- Oral --</option>
+                                        {% for n in niveles_competencia %}
+                                            <option value="{{ n['id_niv_com'] }}">{{ n['niv_prac_com'] }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td style="padding: 5px;">
+                                    <select name="escrito_XXXX" style="width: 100%; padding: 5px;">
+                                        <option value="">-- Escrito --</option>
+                                        {% for n in niveles_competencia %}
+                                            <option value="{{ n['id_niv_com'] }}">{{ n['niv_prac_com'] }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                            </template>
+                        </div>
+
+                        <button type="submit" class="btn-submit" style="width: 100%; padding: 15px; background: #1b5e20; color: #fff; font-weight: bold; border: none; cursor: pointer; margin-top: 20px; font-size: 14px;">
+                            REGISTRAR NUEVO PERSONAL
+                        </button>
                     </form>
                 </div>
             </div>
 
-<div id="lista-personal" class="view-section">
+            <div id="lista-personal" class="view-section">
                 <h2>Listado de Personal Registrado</h2>
                 <p>Personal activo e inactivo con acceso a la plataforma normalizada.</p>
 
@@ -401,32 +441,44 @@
                 }
             });
         }
-        // NUEVA FUNCIÓN PARA LENGUAS
-function agregarLengua() {
-    const select = document.getElementById('select-lengua');
-    const container = document.getElementById('contenedor-lenguas');
-    const id = select.value;
-    const texto = select.options[select.selectedIndex].text;
 
-    if (!id) return; // Si no hay valor, no hacer nada
+        // LÓGICA PARA AGREGAR FILAS DE LENGUAS CON NIVELES
+        document.getElementById('btn-add-lengua').addEventListener('click', function() {
+            const select = document.getElementById('select-lengua');
+            const id_len = select.value;
+            const nombre_len = select.options[select.selectedIndex]?.text;
 
-    // Evitar duplicados
-    if (document.querySelector(`input[value="${id}"][name="idiomas"]`)) {
-        alert("Esta lengua ya ha sido agregada.");
-        return;
-    }
+            if(!id_len) { alert('Por favor, selecciona una lengua primero.'); return; }
+            if(document.getElementById('row-len-' + id_len)) { alert('Esa lengua ya fue agregada a la lista.'); return; }
 
-    // Crear el tag visual
-    const tag = document.createElement('div');
-    tag.style = "background: #ddd; padding: 5px 10px; border-radius: 3px; display: flex; align-items: center; gap: 5px; border: 1px solid #999;";
-    tag.innerHTML = `
-        <span style="font-size: 12px;">${texto}</span>
-        <button type="button" onclick="this.parentElement.remove()" style="border:none; background:red; color:white; cursor:pointer; font-size:10px;">X</button>
-        <input type="hidden" name="idiomas" value="${id}">
-    `;
-    container.appendChild(tag);
-    select.value = ""; // Limpiar el select
-}
+            const tbody = document.querySelector('#tabla-lenguas tbody');
+            const tr = document.createElement('tr');
+            tr.id = 'row-len-' + id_len;
+
+            // Columna 1: Nombre
+            let html = `
+                <td style="padding: 5px; font-weight: bold; text-align: center;">
+                    <input type="hidden" name="idiomas" value="${id_len}">
+                    ${nombre_len}
+                </td>
+            `;
+
+            // Columnas 2, 3 y 4: Selects
+            const templateContent = document.getElementById('selects-template').innerHTML;
+            html += templateContent.replaceAll('XXXX', id_len);
+
+            // Columna 5: Botón eliminar
+            html += `
+                <td style="text-align: center; padding: 5px;">
+                    <button type="button" onclick="this.closest('tr').remove()" style="background: #b22; color: #fff; border: none; padding: 5px 10px; cursor: pointer; font-weight: bold;">X</button>
+                </td>
+            `;
+
+            tr.innerHTML = html;
+            tbody.appendChild(tr);
+
+            select.value = ""; // Limpiar select
+        });
     </script>
     <script src="{{ url_for('static', filename='js/boton_inicio.js') }}"></script>
 </body>
