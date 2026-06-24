@@ -31,89 +31,91 @@
 </head>
 <body>
     <div class="card">
-        <h2>REGISTRO DE TUTOR</h2>
-        <p style="margin-top: -10px; font-size: 11px; color: #666;">Modulo 3: Familias / Tutores</p>
+        <h2>🤝 REGISTRO DE TUTORES</h2>
+        <p style="margin-top: -10px; font-size: 11px; color: #666;">Módulo 3: Familiares y Responsables Legales</p>
 
-        <form action="/tutor/registrar" method="POST" id="form-tutor">
+        <form action="/tutor/registrar" method="POST">
 
-            <span class="seccion-titulo">Datos del Tutor</span>
+            <span class="seccion-titulo">Vinculación Obligatoria</span>
 
-            <label>Nombre(s):</label>
-            <input type="text" name="nombre" placeholder="Nombres" required>
-
-            <label>Primer Apellido:</label>
-            <input type="text" name="apellido_p" placeholder="Primer apellido" required>
-
-            <label>Segundo Apellido:</label>
-            <input type="text" name="apellido_m" placeholder="Segundo apellido" required>
-
-            <label>CURP (Opcional):</label>
-            <input type="text" name="curp" placeholder="CURP" maxlength="18">
-
-            <label>Fecha de Nacimiento:</label>
-            <input type="date" name="fecha_nacimiento">
-
-            <label>Sexo:</label>
-            <select name="id_sexo">
-                <option value="">-- Selecciona --</option>
-                {% for s in sexos %}
-                    <option value="{{ s.id_sexo }}">{{ s.nom_sexo }}</option>
-                {% endfor %}
-            </select>
-
-            <label>Ocupacion:</label>
-            <input type="text" name="ocupacion" placeholder="Ej. Comerciante">
-
-            <hr>
-            <span class="seccion-titulo">Direccion del Tutor</span>
-
-            <label>Codigo Postal (CP):</label>
-            <input type="text" name="cp" id="cp" placeholder="Ej. 01619" maxlength="5"
-                   onblur="buscarCP()" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
-            <div id="cp-aviso" style="font-size:12px; margin:-5px 0 10px 0; min-height:16px;"></div>
-
-            <label>Estado:</label>
-            <input type="text" name="estado" id="estado" placeholder="Se llena con el CP" readonly style="background:#eee;">
-
-            <label>Municipio / Alcaldia:</label>
-            <input type="text" name="municipio" id="municipio" placeholder="Se llena con el CP" readonly style="background:#eee;">
-
-            <label>Colonia:</label>
-            <select name="colonia" id="colonia" disabled>
-                <option value="">-- Escribe el CP primero --</option>
-            </select>
-
-            <label>Calle:</label>
-            <input type="text" name="calle" placeholder="Ej. Av. Insurgentes">
-
-            <label>Numero Exterior:</label>
-            <input type="text" name="numero_ext" placeholder="Ej. 123">
-
-            <label>Numero Interior (opcional):</label>
-            <input type="text" name="numero_int" placeholder="Ej. 4B">
-
-            <span class="seccion-titulo">Vinculacion con el NNA</span>
-
-            <label>NNA a cargo:</label>
+            <label>Asignar este tutor al Niño(a):</label>
             <select name="id_nna" required>
-                <option value="">-- Selecciona NNA --</option>
+                <option value="" disabled selected>-- Selecciona al NNA protegido --</option>
                 {% for n in niños %}
-                    <option value="{{ n.id_nna }}">{{ n.folio_nna }} — {{ n.nombre }} {{ n.apellido_p }}</option>
+                    <option value="{{ n.id_nna }}">{{ n.apellido_p }} {{ n.nombre }} (ID: {{ n.id_nna }})</option>
                 {% endfor %}
             </select>
 
-            <label>Parentesco:</label>
-            <select name="id_paren">
-                <option value="">-- Selecciona --</option>
+            <label>Parentesco con el menor:</label>
+            <select name="id_paren" required>
+                <option value="" disabled selected>-- Tipo de Relación --</option>
                 {% for p in parentescos %}
                     <option value="{{ p.id_paren }}">{{ p.nom_paren }}</option>
                 {% endfor %}
             </select>
 
-            <label style="font-size:12px;">
-                <input type="checkbox" name="tutor_legal" value="1" style="width:auto; margin-right:6px;">
-                Es tutor legal
-            </label>
+            <label>¿Posee la Patria Potestad / Tutoría Legal?:</label>
+            <select name="tutor_legal" required>
+                <option value="1">SÍ, ES EL TUTOR LEGAL</option>
+                <option value="0">NO, SOLO FAMILIAR / CONTACTO</option>
+            </select>
+
+            <hr>
+            <span class="seccion-titulo">Datos del Tutor</span>
+
+            <label>Nombre(s):</label>
+            <input type="text" name="nombre" placeholder="Nombre completo" required>
+
+            <label>Apellido Paterno:</label>
+            <input type="text" name="apellido_p" placeholder="Apellido Paterno" required>
+
+            <label>Apellido Materno:</label>
+            <input type="text" name="apellido_m" placeholder="Apellido Materno" required>
+
+            <label>CURP:</label>
+            <input type="text" name="curp" placeholder="CURP del tutor" required maxlength="18">
+
+            <label>Fecha de Nacimiento:</label>
+            <input type="date" name="fecha_nacimiento" required>
+
+            <label>Sexo:</label>
+            <select name="id_sexo" required>
+                <option value="" disabled selected>-- Selecciona un sexo --</option>
+                {% for s in sexos %}
+                    <option value="{{ s.id_sexo }}">{{ s.nom_sexo }}</option>
+                {% endfor %}
+            </select>
+
+            <label>Ocupación principal:</label>
+            <input type="text" name="ocupacion" placeholder="Ej. Empleado de comercio, Hogar" required>
+
+            <hr>
+            <span class="seccion-titulo">Dirección del Tutor</span>
+
+            <label>Código Postal (CP):</label>
+            <input type="text" name="cp" id="cp" placeholder="Ej. 01619" required maxlength="5"
+                   onblur="buscarCP()" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+            <div id="cp-aviso" style="font-size:12px; margin:-5px 0 10px 0; min-height:16px;"></div>
+
+            <label>Estado:</label>
+            <input type="text" name="estado" id="estado" placeholder="Se llena con el CP" required readonly style="background:#eee;">
+
+            <label>Municipio / Alcaldía:</label>
+            <input type="text" name="municipio" id="municipio" placeholder="Se llena con el CP" required readonly style="background:#eee;">
+
+            <label>Colonia:</label>
+            <select name="colonia" id="colonia" required disabled>
+                <option value="">-- Escribe el CP primero --</option>
+            </select>
+
+            <label>Calle:</label>
+            <input type="text" name="calle" placeholder="Ej. Av. Juan de Dios Bátiz" required>
+
+            <label>Número Exterior:</label>
+            <input type="text" name="numero_ext" placeholder="Ej. 45" required>
+
+            <label>Número Interior (Opcional):</label>
+            <input type="text" name="numero_int" placeholder="Ej. Casa B">
 
             <hr>
             <span class="seccion-titulo">Lenguas del Tutor (INALI)</span>
@@ -182,10 +184,56 @@
             <button type="button" class="btn-mini btn-add" style="width:100%; margin-top:10px;" onclick="agregarCondicion()">+ AGREGAR DISCAPACIDAD</button>
             <ul id="lista-condiciones"></ul>
 
-            <button type="submit">REGISTRAR Y VINCULAR TUTOR</button>
+            <button type="submit">VINCULAR Y GUARDAR TUTOR</button>
         </form>
         <p style="text-align: center;"><a href="/dashboard" style="color:#000;">Volver al Dashboard</a></p>
     </div>
+
+    <!-- ===== CÓDIGO POSTAL ===== -->
+    <script>
+        async function buscarCP() {
+            const cp = document.getElementById('cp').value.trim();
+            const aviso = document.getElementById('cp-aviso');
+            const estado = document.getElementById('estado');
+            const municipio = document.getElementById('municipio');
+            const colonia = document.getElementById('colonia');
+            if (cp.length < 4) { return; }
+            aviso.textContent = 'Buscando...'; aviso.style.color = '#666';
+            try {
+                const resp = await fetch('/api/cp/' + cp);
+                const data = await resp.json();
+                if (data.encontrado) {
+                    estado.value = data.estado; municipio.value = data.municipio;
+                    colonia.innerHTML = '<option value="">-- Selecciona tu colonia --</option>';
+                    data.colonias.forEach(c => {
+                        const o = document.createElement('option');
+                        o.value = c; o.textContent = c; colonia.appendChild(o);
+                    });
+                    colonia.disabled = false;
+                    aviso.textContent = '✓ ' + data.colonias.length + ' colonia(s) encontrada(s)';
+                    aviso.style.color = '#1b5e20';
+                } else {
+                    estado.value = ''; municipio.value = '';
+                    colonia.innerHTML = '<option value="">-- CP no encontrado --</option>';
+                    colonia.disabled = true;
+                    aviso.innerHTML = 'CP no está en el catálogo. Escribe los datos manualmente:';
+                    aviso.style.color = '#b22';
+                    estado.removeAttribute('readonly'); estado.style.background = '#fff';
+                    municipio.removeAttribute('readonly'); municipio.style.background = '#fff';
+                    habilitarColoniaManual();
+                }
+            } catch (e) { aviso.textContent = 'Error al buscar el CP'; aviso.style.color = '#b22'; }
+        }
+        function habilitarColoniaManual() {
+            const colonia = document.getElementById('colonia');
+            if (colonia.tagName === 'SELECT') {
+                const input = document.createElement('input');
+                input.type = 'text'; input.name = 'colonia'; input.id = 'colonia';
+                input.placeholder = 'Escribe tu colonia'; input.required = true;
+                colonia.parentNode.replaceChild(input, colonia);
+            }
+        }
+    </script>
 
     <!-- ===== LENGUAS ===== -->
     <script>
@@ -199,9 +247,7 @@
             { id: "{{ n.id_niv_com }}", nombre: "{{ n.niv_prac_com }}" },
             {% endfor %}
         ];
-
         let lenguasAgregadas = [];
-
         function opcionesHTML(lista, placeholder) {
             let html = '<option value="">' + placeholder + '</option>';
             lista.forEach(o => { html += '<option value="' + o.id + '">' + o.nombre + '</option>'; });
@@ -309,7 +355,6 @@
                 div.textContent = txt; div.style.display = 'block';
             } else { div.style.display = 'none'; }
         }
-
         let condicionesAgregadas = [];
         function agregarCondicion() {
             const selCond = document.getElementById('cas-condicion');
@@ -356,55 +401,6 @@
                 info.innerHTML = html;
                 li.appendChild(enc); li.appendChild(info); ul.appendChild(li);
             });
-        }
-    </script>
-    <!-- ===== AUTOCOMPLETADO POR CÓDIGO POSTAL ===== -->
-    <script>
-        async function buscarCP() {
-            const cp = document.getElementById('cp').value.trim();
-            const aviso = document.getElementById('cp-aviso');
-            const estado = document.getElementById('estado');
-            const municipio = document.getElementById('municipio');
-            const colonia = document.getElementById('colonia');
-            if (cp.length < 4) { return; }
-            aviso.textContent = 'Buscando...'; aviso.style.color = '#666';
-            try {
-                const resp = await fetch('/api/cp/' + cp);
-                const data = await resp.json();
-                if (data.encontrado) {
-                    estado.value = data.estado;
-                    municipio.value = data.municipio;
-                    colonia.innerHTML = '<option value="">-- Selecciona tu colonia --</option>';
-                    data.colonias.forEach(c => {
-                        const o = document.createElement('option');
-                        o.value = c; o.textContent = c;
-                        colonia.appendChild(o);
-                    });
-                    colonia.disabled = false;
-                    aviso.textContent = '✓ ' + data.colonias.length + ' colonia(s) encontrada(s)';
-                    aviso.style.color = '#1b5e20';
-                } else {
-                    estado.value = ''; municipio.value = '';
-                    colonia.innerHTML = '<option value="">-- CP no encontrado --</option>';
-                    colonia.disabled = true;
-                    aviso.innerHTML = 'CP no está en el catálogo. Puedes escribir los datos manualmente:';
-                    aviso.style.color = '#b22';
-                    estado.removeAttribute('readonly'); estado.style.background = '#fff';
-                    municipio.removeAttribute('readonly'); municipio.style.background = '#fff';
-                    habilitarColoniaManual();
-                }
-            } catch (e) {
-                aviso.textContent = 'Error al buscar el CP'; aviso.style.color = '#b22';
-            }
-        }
-        function habilitarColoniaManual() {
-            const colonia = document.getElementById('colonia');
-            if (colonia.tagName === 'SELECT') {
-                const input = document.createElement('input');
-                input.type = 'text'; input.name = 'colonia'; input.id = 'colonia';
-                input.placeholder = 'Escribe tu colonia';
-                colonia.parentNode.replaceChild(input, colonia);
-            }
         }
     </script>
     <script src="{{ url_for('static', filename='js/boton_inicio.js') }}"></script>

@@ -15,9 +15,9 @@ app.secret_key = 'tu_llave_secreta_super_pro'
 def conectar_db():
     return psycopg2.connect(
         host="localhost",
-        database="fundacion_db",
+        database="base_normalizada",
         user="postgres",
-        password="1234"
+        password="Diana2005"
     )
 
 # ----------------------------------------------------------------
@@ -175,43 +175,22 @@ def dashboard():
 
     conn = conectar_db()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-
-    # Tus consultas existentes...
     cur.execute(QUERY_PERSONAL_COMPLETO + " ORDER BY p.id ASC")
     usuarios = cur.fetchall()
-
-    cur.execute("SELECT id_len, autodenom_len FROM lengua;")
-    lenguas = cur.fetchall()
-
-    # !!! NUEVO: Traemos los catálogos para los selects dinámicos !!!
-    cur.execute("SELECT id_mod_adc, categ_mod_adc FROM modo_adquisicion_lengua ORDER BY id_mod_adc")
-    modos_adquisicion = cur.fetchall()
-    
-    cur.execute("SELECT id_niv_com, niv_prac_com FROM nivel_competencia_oral ORDER BY id_niv_com")
-    niveles_competencia = cur.fetchall()
-
     cur.close()
     conn.close()
+    return render_template('dashboard.html', personal=usuarios, nombre=session['nombre'])
 
-    return render_template('dashboard.html', 
-                           personal=usuarios, 
-                           nombre=session['nombre'], 
-                           lenguas=lenguas,
-                           modos_adquisicion=modos_adquisicion,    # Pasamos al HTML
-                           niveles_competencia=niveles_competencia) # Pasamos al HTML
 
 @app.route('/registrar', methods=['POST'])
 def registrar():
     if 'usuario_id' not in session: return redirect(url_for('index'))
 
     d = request.form
-    idiomas = d.getlist('idiomas')
-    
-    # Usamos .get() para evitar el BadRequestKeyError si el campo no se envía
-    pass1 = d.get('password1', '')
-    pass2 = d.get('confirmar_password', '')
-    rfc = d.get('rfc', '').upper()
-    curp = d.get('curp', '').upper()
+    pass1 = d['password1']
+    pass2 = d['confirmar_password']
+    rfc = d['rfc'].upper()
+    curp = d['curp'].upper()
 
     if pass1 != pass2:
         flash("Las contraseñas no coinciden", "error")
@@ -227,8 +206,7 @@ def registrar():
         flash("El formato de la CURP es inválido", "error")
         return redirect('/dashboard')
 
-    # .get() maneja el caso donde el checkbox no existe en la petición
-    es_emp = True if d.get('es_empleado') == '1' else False
+    es_emp = True if d['es_empleado'] == '1' else False
     activo = False
 
     conn = conectar_db()
@@ -245,38 +223,23 @@ def registrar():
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id;
         """
-        # Usamos .get() también aquí por seguridad
         cur.execute(query_personal, (
-            d.get('nombre'), d.get('apellido_p'), d.get('apellido_m'), rfc, curp, d.get('correo'),
-            pass1, d.get('rol_id'), id_sexo, d.get('fecha_nacimiento'), es_emp, activo, id_direccion
+            d['nombre'], d['apellido_p'], d['apellido_m'], rfc, curp, d['correo'],
+            pass1, d['rol_id'], id_sexo, d['fecha_nacimiento'], es_emp, activo, id_direccion
         ))
-        id_personal = cur.fetchone()[0]
-
-        # --- AQUÍ EMPIEZA LA INSERCIÓN DINÁMICA DE LENGUAS ---
-        if idiomas:
-            query_idioma = """
-                INSERT INTO personal_lengua 
-                (id_personal, id_len, id_mod_adc, id_niv_com, id_niv_escrito) 
-                VALUES (%s, %s, %s, %s, %s);
-            """
-            for id_len in idiomas:
-                # Recupera dinámicamente los niveles para el idioma actual
-                id_mod    = d.get(f'modo_{id_len}') or None
-                id_oral   = d.get(f'oral_{id_len}') or None
-                id_escrito = d.get(f'escrito_{id_len}') or None
-                
-                cur.execute(query_idioma, (id_personal, id_len, id_mod, id_oral, id_escrito))
 
         conn.commit()
-        flash("Usuario, dirección y lenguajes registrados con éxito", "success")
+        flash("Usuario y dirección registrados con éxito", "success")
     except Exception as e:
         conn.rollback()
+        print(f"Error en el registro: {e}")
         flash(f"Error al registrar en base de datos: {e}", "error")
     finally:
         cur.close()
         conn.close()
 
     return redirect('/dashboard')
+
 
 @app.route('/estado/<int:id>/<string:actual>')
 def cambiar_estado(id, actual):
@@ -1458,6 +1421,37 @@ def editar_nna(id_nna):
                            cat_escolaridad=cat_escolaridad, cat_estados=cat_estados, 
                            cat_lenguas=cat_lenguas, cat_condiciones=cat_condiciones,
                            lenguas_actuales=lenguas_actuales)
+
+# ----------------------------------------------------------------
+# API: BUSCAR CÓDIGO POSTAL (autocompletado de dirección)
+# Devuelve JSON con estado, municipio y la lista de colonias del CP.
+# La usa el JavaScript del formulario al escribir el CP.
+# ----------------------------------------------------------------
+@app.route('/api/cp/<cp>')
+def api_codigo_postal(cp):
+    conn = conectar_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("""
+        SELECT estado, municipio, ciudad, colonia
+        FROM codigo_postal
+        WHERE cp = %s
+        ORDER BY colonia
+    """, (cp,))
+    filas = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    if not filas:
+        return {'encontrado': False, 'colonias': []}
+
+    # estado y municipio son iguales en todas las filas del mismo CP
+    return {
+        'encontrado': True,
+        'estado': filas[0]['estado'],
+        'municipio': filas[0]['municipio'],
+        'ciudad': filas[0]['ciudad'],
+        'colonias': [f['colonia'] for f in filas]
+    }
 
 # Arranque del servidor Flask al final de todas las definiciones
 if __name__ == '__main__':
