@@ -1,7 +1,13 @@
 # DataCore — Sistema de Gestión de Capital Humano y Catálogos CIF
 
 Este repositorio contiene el desarrollo final del sistema DataCore, un proyecto integral diseñado para la asignatura de Bases de Datos en la ESCOM - IPN. El sistema ofrece una solución para una fundación de Niñas, Niños y Adolescentes (NNA) en situación de orfandad, integrando un backend en Flask con una arquitectura de datos relacional y normalizada en PostgreSQL.
+## Instalación del programa
+Crear base de datos con nombre "base_normalizada" usando el codigo que se encuentra en nuestro codigo sql con el mismo nombre
+cambiar contraseña del postgress en app.py en def conectad_db
+la contraseña sera mla que cada usuario tiene en su postgress
 
+## Ejecutar programa
+En la terminal, comando python3 app.py
 ## Especificaciones Técnicas y Alcance
 
 El sistema cubre el ciclo completo de vida de los datos (CRUD), garantizando la persistencia, seguridad e integridad de la información mediante dos grandes módulos:
