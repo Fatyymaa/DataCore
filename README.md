@@ -188,8 +188,7 @@ El usuario Director cuenta con permisos administrativos. El usuario Coordinador 
 
 ## Notas importantes
 
-* Verificar que PostgreSQL esté activo antes de ejecutar el sistema.
-* Verificar que exista la base de datos `base_normalizada`.
-* Verificar que los datos de conexión en `app.py` sean correctos.
-* No es necesario subir la carpeta `venv/`, ya que corresponde al entorno virtual local.
-* El código debe entregarse completo, no únicamente mediante enlace a repositorio externo.
+- Verificar que PostgreSQL esté activo antes de ejecutar el sistema.
+- Verificar que exista la base de datos `base_normalizada`.
+- Verificar que los datos de conexión en `app.py` sean correctos.
+- Si ocurre un error de conexión, revisar el usuario y la contraseña configurados en PostgreSQL.
