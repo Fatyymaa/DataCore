@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Registro de Usuario | DATACORE</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Registro de Nuevo Personal</h2>
+        <form action="/registro" method="POST">
+            
+            <h3>Datos Personales</h3>
+            <input type="text" name="nombre" placeholder="Nombre" required>
+            <input type="text" name="primer_apellido" placeholder="Primer Apellido" required>
+            <input type="text" name="segundo_apellido" placeholder="Segundo Apellido">
+            <input type="date" name="fecha_nacimiento" required>
+            <input type="text" name="curp" placeholder="CURP" maxlength="18" required>
+            <input type="text" name="rfc" placeholder="RFC" maxlength="13" required>
+            <select name="id_sexo" required>
+                <option value="">Seleccione Sexo</option>
+                {% for s in sexos %}<option value="{{ s[0] }}">{{ s[1] }}</option>{% endfor %}
+            </select>
+
+            <h3>Teléfonos</h3>
+            <div id="contenedor-telefonos">
+                <div class="telefono-row">
+                    <input type="text" name="telefono[]" placeholder="Número de teléfono" required>
+                    <select name="id_tipo_telefono[]">
+                        <option value="1">Celular</option>
+                        <option value="2">Casa</option>
+                    </select>
+                </div>
+            </div>
+            <button type="button" onclick="agregarTelefono()">+ Agregar otro número</button>
+
+            <h3>Dirección (CDMX)</h3>
+            <input type="text" name="calle" placeholder="Calle" required>
+            <input type="text" name="num_ext" placeholder="No. Exterior" required>
+            <input type="text" name="num_int" placeholder="No. Interior">
+            <select name="id_asentamiento" required>
+                <option value="">Seleccione Colonia / Código Postal</option>
+                {% for a in asentamientos %}<option value="{{ a[0] }}">{{ a[1] }} - CP: {{ a[2] }}</option>{% endfor %}
+            </select>
+
+            <h3>Lengua (INALI)</h3>
+            <select name="id_lengua">
+                <option value="">Seleccione Lengua</option>
+                {% for l in lenguas %}<option value="{{ l.id }}">{{ l.nombre }} ({{ l.variante }})</option>{% endfor %}
+            </select>
+            <select name="modo_adquisicion">
+                <option value="lengua materna">Lengua materna</option>
+                <option value="segunda lengua">Segunda lengua</option>
+                <option value="aprendizaje escolar">Aprendizaje escolar</option>
+            </select>
+            <select name="nivel_oral"><option value="nativo">Nativo</option><option value="avanzado">Avanzado</option><option value="intermedio">Intermedio</option><option value="basico">Básico</option></select>
+            <select name="nivel_escrito"><option value="nativo">Nativo</option><option value="avanzado">Avanzado</option><option value="intermedio">Intermedio</option><option value="basico">Básico</option></select>
+
+            <h3>Datos Laborales</h3>
+            <select name="id_puesto" id="puestoSelect" onchange="validarVoluntariado()" required>
+                <option value="">Seleccione Puesto</option>
+                {% for p in puestos %}<option value="{{ p[0] }}" data-nombre="{{ p[1] }}">{{ p[1] }}</option>{% endfor %}
+            </select>
+            <label>
+                <input type="checkbox" name="es_voluntario" value="true" id="checkVoluntario"> Es Voluntario
+            </label>
+            <input type="date" name="fecha_ingreso" required>
+
+            <h3>Credenciales</h3>
+            <input type="email" name="correo" placeholder="Correo electrónico" required>
+            <input type="password" name="contrasena" placeholder="Contraseña" required>
+
+            <button type="submit">Guardar Registro</button>
+        </form>
+    </div>
+
+    <script>
+        function agregarTelefono() {
+            const div = document.createElement('div');
+            div.innerHTML = '<input type="text" name="telefono[]" placeholder="Número"> <select name="id_tipo_telefono[]"><option value="1">Celular</option><option value="2">Casa</option></select>';
+            document.getElementById('contenedor-telefonos').appendChild(div);
+        }
+
+        function validarVoluntariado() {
+            const select = document.getElementById('puestoSelect');
+            const puesto = select.options[select.selectedIndex].getAttribute('data-nombre');
+            const checkbox = document.getElementById('checkVoluntario');
+            const noVoluntarios = ['Director', 'Coordinador', 'Analista'];
+            
+            if (noVoluntarios.includes(puesto)) {
+                checkbox.disabled = true;
+                checkbox.checked = false;
+            } else {
+                checkbox.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

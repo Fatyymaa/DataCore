@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard | DATACORE</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="dashboard-layout">
+
+    <aside class="sidebar">
+        <div class="nav-brand">DATACORE | FUNDACIÓN</div>
+        <nav>
+            <ul>
+                <li><a href="/dashboard">Inicio</a></li>
+                
+
+<li><a href="{{ url_for('registro') }}">Registrar Usuario</a></li>
+                <li><a href="#">Listado de Usuarios</a></li>
+                <li><a href="#">Listado de NNA</a></li>
+                <li><a href="{{ url_for('logout') }}">Salir</a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <header class="header">
+            <h1>Bienvenido, {{ session['nombre_persona'] }}</h1>
+            <p>Puesto: {{ session['puesto_nombre'] }}</p>
+        </header>
+
+        <section class="stats-grid">
+            <div class="card">
+                <h3>Usuarios Activos</h3>
+                <p>{{ usuarios_activos }}</p>
+            </div>
+            <div class="card">
+                <h3>Total Usuarios</h3>
+                <p>{{ total_usuarios }}</p>
+            </div>
+            <div class="card">
+                <h3>NNA Registrados</h3>
+                <p>{{ total_ninos }}</p>
+            </div>
+        </section>
+
+        <section class="table-card">
+            <h2>Personal Registrado</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Puesto</th>
+                        <th>Ingreso</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in trabajadores %}
+                    <tr>
+                        <td>{{ t.nombre }} {{ t.primer_apellido }}</td>
+                        <td>{{ t.puesto }}</td>
+                        <td>{{ t.fecha_ingreso }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+</body>
+</html>
